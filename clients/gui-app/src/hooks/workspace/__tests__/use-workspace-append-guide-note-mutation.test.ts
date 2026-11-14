@@ -30,10 +30,12 @@ describe("appendGuideNote", () => {
     });
   });
 
-  it("creates no guide for a project without one", async () => {
+  it("creates no guide when the host can't open one", async () => {
     const request = vi.fn().mockResolvedValueOnce(readResponse(null));
 
-    await expect(appendGuideNote({ request }, NOTE)).resolves.toBe("no-guide");
+    await expect(appendGuideNote({ request }, NOTE)).resolves.toBe(
+      "unreadable",
+    );
     expect(request).toHaveBeenCalledTimes(1);
   });
 

@@ -12,9 +12,9 @@ const COPY_FAILED = "Couldn't copy the note.";
 
 /**
  * "Add to guide" on a preset row: adds the preset's note to its project's
- * agent selection guide on the preset's host. A project without a guide gets
- * none made for it; the note is copied instead, for the person to put where
- * they choose.
+ * agent selection guide on the preset's host. A guide the host cannot open
+ * (the project may have none) is never made; the note is copied instead, for
+ * the person to put where they choose.
  */
 export function PresetGuideNoteButton(props: {
   readonly client: HostClient<HostRpcRegistry> | null;
@@ -27,7 +27,7 @@ export function PresetGuideNoteButton(props: {
     resetMs: 0,
     onSuccess: () => {
       toast.info(
-        "This project has no agent selection guide, so the note was copied.",
+        "Couldn't open this project's agent selection guide, so the note was copied.",
       );
     },
     onError: () => {

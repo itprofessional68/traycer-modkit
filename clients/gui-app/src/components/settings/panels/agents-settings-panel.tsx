@@ -47,15 +47,15 @@ export function AgentsSettingsPanel(): ReactNode {
   const [tab, setTab] = useState<AgentsTab>("guide");
   // An `openSettings` call naming a tab (the composer's "Manage presets…")
   // is applied once per arm during render, so that tab is the first drawn.
-  // The machine it names is handed to Presets, whose presets are that
-  // machine's; Presets moves Settings onto it (`AgentPresetsTab`).
+  // The machine it names becomes the machine Presets shows; Presets keeps its
+  // own machine choice, so the Settings scope is left as it is.
   const intent = useSettingsOpenIntent("agents");
   const [appliedIntentId, setAppliedIntentId] = useState<number | null>(null);
-  const [requestedHostId, setRequestedHostId] = useState<string | null>(null);
+  const [presetsHostId, setPresetsHostId] = useState<string | null>(null);
   if (intent !== null && intent.id !== appliedIntentId) {
     setAppliedIntentId(intent.id);
     if (intent.tab !== null && isAgentsTab(intent.tab)) setTab(intent.tab);
-    setRequestedHostId(intent.hostId);
+    if (intent.hostId !== null) setPresetsHostId(intent.hostId);
   }
   useLayoutEffect(() => {
     if (intent === null) return;
@@ -110,8 +110,8 @@ export function AgentsSettingsPanel(): ReactNode {
         </TabsContent>
         <TabsContent value="presets" className="pt-5">
           <AgentPresetsTab
-            requestedHostId={requestedHostId}
-            onRequestSettled={() => setRequestedHostId(null)}
+            hostId={presetsHostId}
+            onHostChange={setPresetsHostId}
           />
         </TabsContent>
       </Tabs>

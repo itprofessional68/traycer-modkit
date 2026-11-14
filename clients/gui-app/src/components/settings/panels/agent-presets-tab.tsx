@@ -5,7 +5,6 @@
 import {
   useCallback,
   useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -27,7 +26,7 @@ import {
   type HarnessModelPickerEmbedding,
 } from "@/components/home/pickers/harness-model-picker";
 import { PermissionsPicker } from "@/components/home/pickers/permissions-picker";
-import { HostScopeGate } from "@/components/settings/host-scope/host-scope-gate";
+import { useHostOptions } from "@/components/settings/host-scope/use-host-options";
 import { usePersonalHostScope } from "@/components/settings/host-scope/use-host-scope";
 import { usePresetToolbarStore } from "@/components/settings/panels/use-preset-toolbar-store";
 import { Badge } from "@/components/ui/badge";
@@ -41,11 +40,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useGuiHarnessesQueryForClient } from "@/hooks/harnesses/use-gui-harness-catalog";
-import { UNNAMED_HOST_LABEL } from "@/hooks/agent/use-host-reachability";
+import { useHostClientForHostId } from "@/hooks/host/use-host-client-for-host-id";
 import { useHostMethodSchemaVersion } from "@/hooks/host/use-host-supports-method";
 import { useWorkspaceListRecentWorkspaces } from "@/hooks/workspace/use-workspace-list-recent-workspaces-query";
 import { PresetGuideNoteButton } from "@/components/settings/panels/preset-guide-note-button";
@@ -61,11 +59,10 @@ import type {
   ComposerToolbarStore,
   ComposerToolbarValues,
 } from "@/stores/composer/composer-toolbar-store";
-import { useSettingsEnvironmentPickStore } from "@/stores/settings/settings-environment-pick-store";
 import { useSettingsStore } from "@/stores/settings/settings-store";
 
 const PRESETS_CAPTION =
-  "Saved agent setups for a project on this host. Pick one from the composer's Presets menu; a project's default starts new agents there.";
+  "Saved agent setups for a project on this machine. Pick one from the composer's Presets menu; a project's default starts new agents there.";
 
 const OTHER_PROJECT = "__other__";
 
@@ -75,64 +72,65 @@ type Editing =
   | { readonly kind: "edit"; readonly preset: AgentPreset };
 
 /**
- * Settings ▸ Agents ▸ Presets, for the host the sidebar names. Reads go
- * through the scope's own client, so nothing here re-provides the ambient
- * binding.
- *
- * `requestedHostId` is the machine a "Manage presets…" asked for. Presets are
- * that machine's, whatever configuration Settings is showing, so Settings
- * moves to the machine's own row, as choosing it in the Environment dropdown
- * would, and the body waits until the scope names it: it never mounts, or
- * saves, against the machine Settings is leaving.
+ * Settings ▸ Agents ▸ Presets. Presets are this app's own data, kept per
+ * machine, not a file on a host, so the tab names its machine itself rather
+ * than moving the Settings scope: it shows the machine Settings is showing
+ * until one is chosen here, or until a composer's "Manage presets…" names its
+ * own (`hostId`). Reads go through that machine's client, so nothing here
+ * re-provides the ambient binding.
  */
 export function AgentPresetsTab(props: {
-  readonly requestedHostId: string | null;
-  readonly onRequestSettled: () => void;
+  readonly hostId: string | null;
+  readonly onHostChange: (hostId: string) => void;
 }): ReactNode {
-  const { requestedHostId, onRequestSettled } = props;
   const scope = usePersonalHostScope();
-  const setPick = useSettingsEnvironmentPickStore((state) => state.setPick);
-  const requestSettled =
-    requestedHostId === null ||
-    scope.hostId === requestedHostId ||
-    scope.status === "vanished";
-  const requestedHostName =
-    requestedHostId === null
-      ? null
-      : (scope.hosts.find((host) => host.hostId === requestedHostId)?.name ??
-        UNNAMED_HOST_LABEL);
-  useLayoutEffect(() => {
-    if (requestedHostId === null || requestedHostName === null) return;
-    if (requestSettled) {
-      onRequestSettled();
-      return;
-    }
-    setPick({
-      kind: "local",
-      hostId: requestedHostId,
-      hostName: requestedHostName,
-    });
-  }, [
-    requestedHostId,
-    requestedHostName,
-    requestSettled,
-    onRequestSettled,
-    setPick,
-  ]);
-  const skeleton = <Skeleton className="h-24 w-full" />;
-  if (!requestSettled) return skeleton;
+  const options = useHostOptions();
+  const hostId = props.hostId ?? scope.hostId;
+  const namedClient = useHostClientForHostId(hostId);
+  const client = hostId === null ? null : namedClient;
+  const host = options.hosts.find((row) => row.hostId === hostId) ?? null;
+  const machineId = useId();
   return (
-    <HostScopeGate scope={scope} skeleton={skeleton}>
-      <AgentPresetsBody hostId={scope.hostId} client={scope.client} />
-    </HostScopeGate>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={machineId}>Machine</Label>
+        <Select
+          value={hostId ?? ""}
+          onValueChange={(next) => props.onHostChange(next)}
+        >
+          <SelectTrigger
+            id={machineId}
+            className="w-full"
+            data-testid="agent-presets-machine"
+          >
+            <SelectValue placeholder="Choose a machine" />
+          </SelectTrigger>
+          <SelectContent>
+            {options.hosts.map((row) => (
+              <SelectItem key={row.hostId} value={row.hostId}>
+                {row.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <AgentPresetsBody
+        key={hostId}
+        hostId={hostId}
+        client={client}
+        connectable={host?.connectable === true}
+      />
+    </div>
   );
 }
 
 function AgentPresetsBody(props: {
   readonly hostId: string | null;
   readonly client: HostClient<HostRpcRegistry> | null;
+  /** The machine answers now; its agents and models are needed to edit. */
+  readonly connectable: boolean;
 }): ReactNode {
-  const { hostId, client } = props;
+  const { hostId, client, connectable } = props;
   const presets = useAgentPresetsStore((state) =>
     selectHostPresets(state, hostId),
   );
@@ -155,12 +153,18 @@ function AgentPresetsBody(props: {
   return (
     <div className="flex flex-col gap-4" data-testid="agent-presets-tab">
       <p className="text-ui-xs text-muted-foreground">{PRESETS_CAPTION}</p>
+      {hostId !== null && !connectable ? (
+        <p className="text-ui-xs text-muted-foreground">
+          This machine isn&apos;t connected, so its presets can&apos;t be edited
+          right now.
+        </p>
+      ) : null}
       {editing.kind === "closed" ? (
         <div>
           <Button
             type="button"
             size="sm"
-            disabled={hostId === null}
+            disabled={hostId === null || !connectable}
             data-testid="agent-presets-new"
             onClick={() => setEditing({ kind: "new" })}
           >
@@ -205,7 +209,7 @@ function AgentPresetsBody(props: {
                       {presetSummary(preset, harnessLabel(preset.harnessId))}
                     </span>
                   </div>
-                  {preset.guideNote === null ? null : (
+                  {preset.guideNote === null || !connectable ? null : (
                     <PresetGuideNoteButton
                       client={client}
                       repoPath={preset.repoPath}
@@ -216,6 +220,7 @@ function AgentPresetsBody(props: {
                     type="button"
                     variant="ghost"
                     size="sm"
+                    disabled={!connectable}
                     onClick={() => setEditing({ kind: "edit", preset })}
                   >
                     Edit

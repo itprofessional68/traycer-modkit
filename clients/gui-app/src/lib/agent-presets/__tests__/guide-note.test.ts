@@ -20,6 +20,12 @@ describe("guideWithNote", () => {
     );
   });
 
+  it("adds a note whose words only appear inside another paragraph", () => {
+    expect(guideWithNote("Use Opus here for tests.\n", "Use Opus here")).toBe(
+      "Use Opus here for tests.\n\nUse Opus here\n",
+    );
+  });
+
   it("changes nothing when the guide already has the note", () => {
     expect(
       guideWithNote("# Guide\n\nPrefer Opus here.\n", " Prefer Opus here. "),

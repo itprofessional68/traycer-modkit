@@ -11,8 +11,8 @@ vi.mock("@/components/settings/panels/agent-definitions-tab", () => ({
   AgentDefinitionsTab: () => <div data-testid="definitions-body" />,
 }));
 vi.mock("@/components/settings/panels/agent-presets-tab", () => ({
-  AgentPresetsTab: (props: { readonly requestedHostId: string | null }) => (
-    <div data-testid="presets-body">{props.requestedHostId}</div>
+  AgentPresetsTab: (props: { readonly hostId: string | null }) => (
+    <div data-testid="presets-body">{props.hostId}</div>
   ),
 }));
 vi.mock("@/components/settings/environment/environment-host-binding", () => ({

@@ -8,22 +8,24 @@ import type {
 
 const HOST = "host-a";
 
-// The scope and its gate are other suites' subject: here the scope is one
-// ready host and the gate renders what it holds.
-const scopeHost = vi.hoisted(() => ({ hostId: "host-a" }));
+// The Settings scope and the machine list are other suites' subject: here
+// Settings shows one machine, and a second one is not connected.
 vi.mock("@/components/settings/host-scope/use-host-scope", () => ({
-  usePersonalHostScope: () => ({
-    hostId: scopeHost.hostId,
-    client: null,
-    status: "ready",
-    hosts: [{ hostId: "host-b", name: "Studio" }],
-  }),
+  usePersonalHostScope: () => ({ hostId: HOST }),
 }));
-vi.mock("@/components/settings/host-scope/host-scope-gate", () => ({
-  HostScopeGate: (props: { readonly children: React.ReactNode }) => (
-    <>{props.children}</>
-  ),
+const HOST_OPTIONS = {
+  hosts: [
+    { hostId: HOST, name: "Laptop", connectable: true },
+    { hostId: "host-b", name: "Studio", connectable: false },
+  ],
+};
+vi.mock("@/components/settings/host-scope/use-host-options", () => ({
+  useHostOptions: () => HOST_OPTIONS,
 }));
+vi.mock("@/hooks/host/use-host-client-for-host-id", () => ({
+  useHostClientForHostId: () => null,
+}));
+
 // The pickers are drawn by their own suites; the form reads what the toolbar
 // store resolves, so they are markers here.
 vi.mock("@/components/home/pickers/harness-model-picker", () => ({
@@ -81,7 +83,6 @@ import {
   selectHostPresets,
   useAgentPresetsStore,
 } from "@/stores/agents/agent-presets-store";
-import { useSettingsEnvironmentPickStore } from "@/stores/settings/settings-environment-pick-store";
 import { useSettingsStore } from "@/stores/settings/settings-store";
 
 function hostPresets() {
@@ -101,17 +102,10 @@ describe("<AgentPresetsTab />", () => {
 
   afterEach(() => {
     cleanup();
-    scopeHost.hostId = HOST;
-    useSettingsEnvironmentPickStore.getState().setPick(null);
   });
 
   it("saves a new preset with the model the host resolves", async () => {
-    render(
-      <AgentPresetsTab
-        requestedHostId={null}
-        onRequestSettled={() => undefined}
-      />,
-    );
+    render(<AgentPresetsTab hostId={null} onHostChange={() => undefined} />);
     expect(screen.getByText("No presets on this host yet.")).toBeTruthy();
 
     await userEvent.click(screen.getByTestId("agent-presets-new"));
@@ -153,12 +147,7 @@ describe("<AgentPresetsTab />", () => {
       guideNote: null,
       isDefault: false,
     });
-    render(
-      <AgentPresetsTab
-        requestedHostId={null}
-        onRequestSettled={() => undefined}
-      />,
-    );
+    render(<AgentPresetsTab hostId={null} onHostChange={() => undefined} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     const name = screen.getByTestId("agent-preset-name");
@@ -174,30 +163,31 @@ describe("<AgentPresetsTab />", () => {
     expect(hostPresets()).toEqual([]);
   });
 
-  it("moves Settings to the machine a composer asked for before showing its presets", () => {
-    const onRequestSettled = vi.fn();
-    const { rerender } = render(
-      <AgentPresetsTab
-        requestedHostId="host-b"
-        onRequestSettled={onRequestSettled}
-      />,
-    );
-
-    expect(useSettingsEnvironmentPickStore.getState().pick).toEqual({
-      kind: "local",
-      hostId: "host-b",
-      hostName: "Studio",
+  it("shows the machine a composer asked for, and holds edits while it is offline", () => {
+    useAgentPresetsStore.getState().savePreset("host-b", {
+      id: "preset-b",
+      name: "Studio reviewer",
+      repoPath: "/work/app",
+      harnessId: "codex",
+      model: "gpt-5-codex",
+      reasoningEffort: null,
+      serviceTier: null,
+      permissionMode: "supervised",
+      profileId: null,
+      guideNote: "Prefer Codex here.",
+      isDefault: false,
     });
-    expect(screen.queryByTestId("agent-presets-tab")).toBeNull();
+    render(<AgentPresetsTab hostId="host-b" onHostChange={() => undefined} />);
 
-    scopeHost.hostId = "host-b";
-    rerender(
-      <AgentPresetsTab
-        requestedHostId="host-b"
-        onRequestSettled={onRequestSettled}
-      />,
+    expect(screen.getByTestId("agent-presets-machine").textContent).toBe(
+      "Studio",
     );
-    expect(onRequestSettled).toHaveBeenCalled();
-    expect(screen.getByTestId("agent-presets-tab")).toBeTruthy();
+    expect(screen.getByTestId("agent-preset-row").textContent).toContain(
+      "Studio reviewer",
+    );
+    expect(
+      screen.getByTestId("agent-presets-new").hasAttribute("disabled"),
+    ).toBe(true);
+    expect(screen.queryByTestId("agent-preset-add-to-guide")).toBeNull();
   });
 });

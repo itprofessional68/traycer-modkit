@@ -25,8 +25,9 @@ export interface AppendGuideNoteVariables {
 /**
  * - `added`: the note is now the guide's last paragraph.
  * - `present`: the guide already held it; nothing was written.
- * - `no-guide`: the project has no guide this host could read. Nothing is
- *   created: a guide is the project's own file, and the person decides
+ * - `unreadable`: the host could not read the guide - the project may have
+ *   none, or the read was refused; the response does not say which. Nothing
+ *   is created: a guide is the project's own file, and the person decides
  *   whether it has one.
  * - `changed`: the guide changed between the read and the write; nothing was
  *   written.
@@ -34,7 +35,7 @@ export interface AppendGuideNoteVariables {
 export type AppendGuideNoteOutcome =
   | "added"
   | "present"
-  | "no-guide"
+  | "unreadable"
   | "changed";
 
 /**
@@ -77,7 +78,7 @@ export async function appendGuideNote(
     filePath: WORKSPACE_GUIDE_PATH,
     maxBytes: GUIDE_MAX_BYTES,
   });
-  if (read.content === null) return "no-guide";
+  if (read.content === null) return "unreadable";
   if (read.truncated) {
     throw new Error("The agent selection guide is too large to add to.");
   }
