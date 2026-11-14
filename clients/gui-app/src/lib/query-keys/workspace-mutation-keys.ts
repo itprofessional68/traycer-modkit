@@ -4,4 +4,5 @@ export const workspaceMutationKeys = {
   removeBindingEntry: () => ["workspaceBinding.removeEntry"] as const,
   removeEpicRepo: () => ["epic.removeRepo"] as const,
   writeFile: () => ["workspace.writeFile"] as const,
+  appendGuideNote: () => ["workspace.writeFile", "guide-note"] as const,
 };

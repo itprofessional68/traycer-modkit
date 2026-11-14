@@ -19,6 +19,11 @@ const agentPresetSchema = z.object({
   serviceTier: z.string().nullable(),
   permissionMode: permissionModeSchema,
   profileId: z.string().nullable(),
+  /**
+   * A paragraph the person can add to the project's agent selection guide.
+   * Defaulted so presets saved before the field parse.
+   */
+  guideNote: z.string().nullable().default(null),
   /** Seeds a new agent in this project; at most one per (host, project). */
   isDefault: z.boolean(),
   /** When it was last saved; past the cap the oldest go first. */
@@ -111,6 +116,12 @@ export function groupPresetsByProject(
     groups.set(preset.repoPath, group);
   }
   return [...groups.entries()];
+}
+
+/** A project's folder name, for a menu; the full path is its title. */
+export function presetProjectName(repoPath: string): string {
+  const parts = repoPath.split(/[\\/]/).filter((part) => part.length > 0);
+  return parts.at(-1) ?? repoPath;
 }
 
 /** The project's default preset on this host, or `null`. */

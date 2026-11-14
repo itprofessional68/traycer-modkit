@@ -18,9 +18,10 @@ import {
   ChatRoutingTabMenu,
 } from "@/components/epic-canvas/canvas/chat-routing-menu";
 import { getChatSessionRegistry } from "@/lib/registries/chat-session-registry";
-import { createChatSessionStore } from "@/stores/chats/chat-session-store";
-import { IMMEDIATE_STREAM_FLUSH_COORDINATOR } from "@/stores/chats/stream-flush-coordinator";
-import { CHAT_STORE_TEST_ENVIRONMENT } from "@/stores/chats/test-support/chat-store-test-environment";
+import {
+  CHAT_RECORD,
+  openChatTabSession,
+} from "@/components/epic-canvas/canvas/__tests__/chat-tab-menu-session";
 import {
   agentConfigureCarriesRouting,
   buildRoutingConfigureRequest,
@@ -53,25 +54,6 @@ const SETTINGS: ChatRunSettings = {
   profileId: "work",
 };
 
-const CHAT_RECORD = {
-  id: "chat-1",
-  parentId: null,
-  userId: "user-1",
-  hostId: "host-1",
-  title: "A chat",
-  createdAt: 1,
-  updatedAt: 1,
-  isTitleEditedByUser: false,
-  settings: SETTINGS,
-  activeSessionChain: null,
-  claudePendingWakes: [],
-  messages: [],
-  events: [],
-  archivedAt: null,
-  pinnedUserProviderHandle: null,
-  lastDeliveredRolesDigest: null,
-};
-
 describe("the routing choice a chat carries", () => {
   it("reads an absent choice as following the device", () => {
     expect(chatRoutingOf({})).toBe("policy");
@@ -79,7 +61,7 @@ describe("the routing choice a chat carries", () => {
   });
 
   it("survives the chat record the host sends, and a record without it still parses", () => {
-    const base = CHAT_RECORD;
+    const base = { ...CHAT_RECORD, settings: SETTINGS };
     const held = chatRecordSchema.parse({ ...base, routing: "hold" });
     expect(chatRoutingOf(held)).toBe("hold");
     expect(chatRoutingOf(chatRecordSchema.parse(base))).toBe("policy");
@@ -229,45 +211,6 @@ describe("the setting for an open chat", () => {
     registry.disposeAll();
   });
 
-  /** A chat session the way the tab's tile holds it, over a stream that goes nowhere. */
-  function openSession(
-    role: "owner" | "viewer",
-    settings: ChatRunSettings,
-  ): void {
-    const handle = registry.acquire(
-      {
-        epicId: "epic-1",
-        chatId: "chat-1",
-        hostId: "host-1",
-        scopeKey: "routing-menu",
-      },
-      () =>
-        createChatSessionStore({
-          environment: CHAT_STORE_TEST_ENVIRONMENT,
-          hostId: "host-1",
-          epicId: "epic-1",
-          chatId: "chat-1",
-          userId: "user-1",
-          onAuthError: null,
-          onProviderAuthError: null,
-          wakeTransport: null,
-          streamFlushCoordinator: IMMEDIATE_STREAM_FLUSH_COORDINATOR,
-          streamClientFactory: () => ({
-            sendAction: () => undefined,
-            sameTurnSteeringProtocolSupported: () => true,
-            draftBlobBridgeSupported: () => true,
-            requestTranscriptRange: () => undefined,
-            requestResnapshot: () => undefined,
-            close: () => undefined,
-          }),
-        }),
-    );
-    handle.store.setState({
-      chat: chatRecordSchema.parse({ ...CHAT_RECORD, settings }),
-      access: { role, ownerUserId: "user-1", canAct: role === "owner" },
-    });
-  }
-
   function openMenu(): void {
     render(
       <ContextMenu>
@@ -283,7 +226,7 @@ describe("the setting for an open chat", () => {
   }
 
   it("sends the chat's own restated tuple with the new routing when its owner picks it", async () => {
-    openSession("owner", SETTINGS);
+    openChatTabSession("owner", SETTINGS);
     openMenu();
 
     const trigger = await screen.findByText("On a usage limit or error");
@@ -308,7 +251,7 @@ describe("the setting for an open chat", () => {
   });
 
   it("hides the setting when 7.1 cannot preserve a named tier", () => {
-    openSession("owner", { ...SETTINGS, serviceTier: "priority" });
+    openChatTabSession("owner", { ...SETTINGS, serviceTier: "priority" });
     openMenu();
 
     expect(screen.queryByText("On a usage limit or error")).toBeNull();
@@ -316,14 +259,14 @@ describe("the setting for an open chat", () => {
 
   it("offers the setting when 7.2 can preserve a named tier", async () => {
     hoisted.schemaVersion = { major: 7, minor: 2 };
-    openSession("owner", { ...SETTINGS, serviceTier: "priority" });
+    openChatTabSession("owner", { ...SETTINGS, serviceTier: "priority" });
     openMenu();
 
     expect(await screen.findByText("On a usage limit or error")).toBeTruthy();
   });
 
   it("cannot be changed from a chat shared with the person as a viewer", async () => {
-    openSession("viewer", SETTINGS);
+    openChatTabSession("viewer", SETTINGS);
     openMenu();
 
     const trigger = await screen.findByText("On a usage limit or error");
@@ -336,7 +279,7 @@ describe("the setting for an open chat", () => {
     openMenu();
     expect(screen.queryByText("On a usage limit or error")).toBeNull();
 
-    act(() => openSession("owner", SETTINGS));
+    act(() => openChatTabSession("owner", SETTINGS));
 
     expect(screen.getByText("On a usage limit or error")).toBeDefined();
   });

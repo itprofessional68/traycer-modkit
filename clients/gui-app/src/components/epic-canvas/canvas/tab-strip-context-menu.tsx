@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 
 import type { SplitDirection } from "@/stores/epics/canvas/types";
+import { ChatPresetTabMenu } from "@/components/epic-canvas/canvas/chat-preset-menu";
 import { ChatRoutingTabMenu } from "@/components/epic-canvas/canvas/chat-routing-menu";
 import { ContinueOnOpencodeTwoTabMenu } from "@/components/epic-canvas/canvas/continue-on-opencode-two-menu";
 
@@ -56,8 +57,9 @@ export interface TabStripContextMenuProps {
    */
   readonly onOpenUsage: (() => void) | null;
   /**
-   * The chat this tab shows, for the per-agent "On a usage limit or error"
-   * setting and "Continue on OpenCode 2". `null` for every non-chat tab.
+   * The chat this tab shows, for "Apply preset", the per-agent "On a usage
+   * limit or error" setting and "Continue on OpenCode 2". `null` for every
+   * non-chat tab.
    */
   readonly chatRouting: {
     readonly epicId: string;
@@ -162,6 +164,7 @@ export function TabStripContextMenu(props: TabStripContextMenuProps) {
       {chatRouting === null ? null : (
         <>
           <ContextMenuSeparator />
+          <ChatPresetTabMenu {...chatRouting} />
           <ChatRoutingTabMenu {...chatRouting} />
           <ContinueOnOpencodeTwoTabMenu {...chatRouting} tabId={tabId} />
         </>

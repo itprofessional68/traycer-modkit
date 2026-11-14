@@ -43,6 +43,7 @@ describe("<ComposerPresetsMenu />", () => {
       serviceTier: null,
       permissionMode: "supervised",
       profileId: null,
+      guideNote: null,
       isDefault: false,
     });
   });

@@ -18,10 +18,12 @@ const CONFIGURE_INVALIDATIONS: ReadonlyArray<keyof HostRpcRegistry & string> = [
  * Changes an existing agent's run settings via `agent.configure`. The host
  * pushes the new record to every open view of the chat itself, so the caller
  * waits on the answer only to learn whether the host took it.
- * The caller supplies the client for the host that owns the agent.
+ * The caller supplies the client for the host that owns the agent, and the
+ * line a refusal is toasted with, which names what the caller was changing.
  */
 export function useAgentConfigure(
   client: HostClient<HostRpcRegistry> | null,
+  errorMessage: string,
 ): UseMutationResult<
   ResponseOfMethod<HostRpcRegistry, "agent.configure">,
   HostRpcError,
@@ -35,7 +37,7 @@ export function useAgentConfigure(
         ? null
         : AGENT_CONFIGURE_SERVICE_TIER_REQUIRED_HOST_VERSION,
     mutationKey: agentMutationKeys.configure(),
-    errorMessage: "Couldn't change what this agent does on a usage limit.",
+    errorMessage,
     invalidateMethods: CONFIGURE_INVALIDATIONS,
   });
 }

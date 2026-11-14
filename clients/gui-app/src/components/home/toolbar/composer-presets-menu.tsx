@@ -17,6 +17,7 @@ import { applyPresetToToolbar } from "@/lib/agent-presets/apply-preset";
 import { focusActiveComposer } from "@/lib/composer/composer-focus-registry";
 import {
   groupPresetsByProject,
+  presetProjectName,
   selectHostPresets,
   useAgentPresetsStore,
 } from "@/stores/agents/agent-presets-store";
@@ -79,7 +80,7 @@ export function ComposerPresetsMenu(props: {
         {groups.map(([repoPath, rows]) => (
           <DropdownMenuGroup key={repoPath}>
             <DropdownMenuLabel title={repoPath}>
-              {projectName(repoPath)}
+              {presetProjectName(repoPath)}
             </DropdownMenuLabel>
             {rows.map((preset) => (
               <DropdownMenuItem
@@ -113,10 +114,4 @@ export function ComposerPresetsMenu(props: {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-/** The folder's own name; the full path is the label's title. */
-function projectName(repoPath: string): string {
-  const parts = repoPath.split(/[\\/]/).filter((part) => part.length > 0);
-  return parts.at(-1) ?? repoPath;
 }

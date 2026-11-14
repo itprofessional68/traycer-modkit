@@ -4,7 +4,6 @@
  */
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { EnvironmentHostBinding } from "@/components/settings/environment/environment-host-binding";
-import { carryViewedHostIntoSettingsScope } from "@/components/settings/host-scope/carry-viewed-host-into-settings";
 import { AGENT_SELECTION } from "@/components/settings/panels/agents-settings.definitions";
 import { AgentDefinitionsTab } from "@/components/settings/panels/agent-definitions-tab";
 import { AgentPresetsTab } from "@/components/settings/panels/agent-presets-tab";
@@ -47,17 +46,19 @@ function isAgentsTab(value: string): value is AgentsTab {
 export function AgentsSettingsPanel(): ReactNode {
   const [tab, setTab] = useState<AgentsTab>("guide");
   // An `openSettings` call naming a tab (the composer's "Manage presets…")
-  // is applied once per arm during render, so that tab is the first drawn;
-  // its machine becomes the Settings scope before paint.
+  // is applied once per arm during render, so that tab is the first drawn.
+  // The machine it names is handed to Presets, whose presets are that
+  // machine's; Presets moves Settings onto it (`AgentPresetsTab`).
   const intent = useSettingsOpenIntent("agents");
   const [appliedIntentId, setAppliedIntentId] = useState<number | null>(null);
+  const [requestedHostId, setRequestedHostId] = useState<string | null>(null);
   if (intent !== null && intent.id !== appliedIntentId) {
     setAppliedIntentId(intent.id);
     if (intent.tab !== null && isAgentsTab(intent.tab)) setTab(intent.tab);
+    setRequestedHostId(intent.hostId);
   }
   useLayoutEffect(() => {
     if (intent === null) return;
-    carryViewedHostIntoSettingsScope(intent.hostId);
     acknowledgeSettingsOpenIntent(intent.id);
   }, [intent]);
   return (
@@ -108,7 +109,10 @@ export function AgentsSettingsPanel(): ReactNode {
           </EnvironmentHostBinding>
         </TabsContent>
         <TabsContent value="presets" className="pt-5">
-          <AgentPresetsTab />
+          <AgentPresetsTab
+            requestedHostId={requestedHostId}
+            onRequestSettled={() => setRequestedHostId(null)}
+          />
         </TabsContent>
       </Tabs>
     </SettingsPanelShell>

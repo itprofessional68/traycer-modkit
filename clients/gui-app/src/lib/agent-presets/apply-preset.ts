@@ -1,4 +1,5 @@
 import type { ChatRunSettings } from "@traycer/protocol/host/agent/gui/subscribe";
+import type { AgentConfigureRequestV72 } from "@traycer/protocol/host/index";
 import {
   findDefaultModel,
   findSelectedModel,
@@ -37,7 +38,8 @@ type PresetCatalog = Pick<
  * remembered pick - but the notice says so. A model is checked only when the
  * catalog holds that harness's models for the same account; otherwise the
  * composer resolves the slug when they load. The permission is passed through:
- * the composer clamps it to what the harness honors, `auto` included.
+ * the composer clamps it to what the harness and the chat can carry, and
+ * `applyPresetToToolbar` reports that clamp from the composer's own answer.
  */
 export function applyPreset(
   preset: AgentPreset,
@@ -50,7 +52,6 @@ export function applyPreset(
   const notices = [
     harnessNotice(catalog.harnesses, harness, harnessLabel),
     model.notice,
-    permissionNotice(preset, harness, harnessLabel),
   ].filter((notice) => notice !== null);
   return {
     selection: {
@@ -106,23 +107,6 @@ function resolvePresetModel(
   };
 }
 
-function permissionNotice(
-  preset: AgentPreset,
-  harness: HarnessOption | null,
-  harnessLabel: string,
-): string | null {
-  if (
-    harness === null ||
-    harness.supportedPermissionModes.includes(preset.permissionMode)
-  ) {
-    return null;
-  }
-  const label =
-    PERMISSION_OPTIONS.find((option) => option.id === preset.permissionMode)
-      ?.label ?? preset.permissionMode;
-  return `${harnessLabel} can't run ${label}, so the closest mode is used.`;
-}
-
 /**
  * Sets a composer to a preset. Not through `commitSelection`: that restores
  * the harness's remembered effort and tier, and the preset names its own.
@@ -136,7 +120,19 @@ export function applyPresetToToolbar(
   const application = applyPreset(preset, state.catalog);
   state.applyComposerSelection(application.selection);
   store.getState().setPermission(application.permission);
-  return application.notice;
+  const applied = store.getState();
+  const permission =
+    applied.permission === application.permission
+      ? null
+      : `${applied.harnessLabel ?? preset.harnessId} can't run ${permissionLabel(application.permission)} here, so ${permissionLabel(applied.permission)} is used.`;
+  const notices = [application.notice, permission].filter(
+    (notice) => notice !== null,
+  );
+  return notices.length === 0 ? null : notices.join(" ");
+}
+
+function permissionLabel(mode: PermissionMode): string {
+  return PERMISSION_OPTIONS.find((option) => option.id === mode)?.label ?? mode;
 }
 
 /** A preset as the settings a new agent starts with. */
@@ -150,5 +146,35 @@ export function presetRunSettings(preset: AgentPreset): ChatRunSettings {
     agentMode: "regular",
     profileId: preset.profileId,
     ultracode: false,
+  };
+}
+
+/**
+ * The `agent.configure` request that moves an existing chat onto a preset:
+ * its agent, model, account, effort, Fast and access mode, with the chat's
+ * routing left as it is. The chat configures itself, as the routing setting
+ * does: the GUI is not an agent, and the call has to name one the person owns.
+ */
+export function presetConfigureRequest(input: {
+  readonly epicId: string;
+  readonly chatId: string;
+  readonly preset: AgentPreset;
+}): AgentConfigureRequestV72 {
+  const { preset } = input;
+  return {
+    epicId: input.epicId,
+    senderAgentId: input.chatId,
+    agentId: input.chatId,
+    harnessId: preset.harnessId,
+    model: preset.model,
+    profileSelection:
+      preset.profileId === null
+        ? { kind: "ambient" }
+        : { kind: "profile", profileId: preset.profileId },
+    reasoningEffort: preset.reasoningEffort,
+    fastMode: preset.serviceTier !== null,
+    serviceTier: preset.serviceTier,
+    permissionMode: preset.permissionMode,
+    routing: null,
   };
 }

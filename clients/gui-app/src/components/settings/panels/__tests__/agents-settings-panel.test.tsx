@@ -11,7 +11,9 @@ vi.mock("@/components/settings/panels/agent-definitions-tab", () => ({
   AgentDefinitionsTab: () => <div data-testid="definitions-body" />,
 }));
 vi.mock("@/components/settings/panels/agent-presets-tab", () => ({
-  AgentPresetsTab: () => <div data-testid="presets-body" />,
+  AgentPresetsTab: (props: { readonly requestedHostId: string | null }) => (
+    <div data-testid="presets-body">{props.requestedHostId}</div>
+  ),
 }));
 vi.mock("@/components/settings/environment/environment-host-binding", () => ({
   EnvironmentHostBinding: (props: { readonly children: React.ReactNode }) => (
@@ -20,9 +22,15 @@ vi.mock("@/components/settings/environment/environment-host-binding", () => ({
 }));
 
 import { AgentsSettingsPanel } from "@/components/settings/panels/agents-settings-panel";
+import {
+  armSettingsOpenIntent,
+  resetSettingsOpenIntentForTests,
+  useSettingsOpenIntentStore,
+} from "@/stores/tabs/settings-open-intent-store";
 
 afterEach(() => {
   cleanup();
+  resetSettingsOpenIntentForTests();
 });
 
 describe("<AgentsSettingsPanel />", () => {
@@ -81,5 +89,19 @@ describe("<AgentsSettingsPanel />", () => {
     );
     expect(screen.getByTestId("presets-body")).toBeTruthy();
     expect(screen.queryByTestId("guide-body")).toBeNull();
+  });
+
+  it("opens on Presets for the machine a composer asked for, and spends the request", () => {
+    armSettingsOpenIntent({
+      section: "agents",
+      tab: "presets",
+      draft: null,
+      resetToGeneral: false,
+      hostId: "host-b",
+    });
+    render(<AgentsSettingsPanel />);
+
+    expect(screen.getByTestId("presets-body").textContent).toBe("host-b");
+    expect(useSettingsOpenIntentStore.getState().intent).toBeNull();
   });
 });

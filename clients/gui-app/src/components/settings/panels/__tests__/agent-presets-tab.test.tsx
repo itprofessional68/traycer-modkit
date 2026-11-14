@@ -10,8 +10,14 @@ const HOST = "host-a";
 
 // The scope and its gate are other suites' subject: here the scope is one
 // ready host and the gate renders what it holds.
+const scopeHost = vi.hoisted(() => ({ hostId: "host-a" }));
 vi.mock("@/components/settings/host-scope/use-host-scope", () => ({
-  usePersonalHostScope: () => ({ hostId: HOST, client: null }),
+  usePersonalHostScope: () => ({
+    hostId: scopeHost.hostId,
+    client: null,
+    status: "ready",
+    hosts: [{ hostId: "host-b", name: "Studio" }],
+  }),
 }));
 vi.mock("@/components/settings/host-scope/host-scope-gate", () => ({
   HostScopeGate: (props: { readonly children: React.ReactNode }) => (
@@ -75,6 +81,7 @@ import {
   selectHostPresets,
   useAgentPresetsStore,
 } from "@/stores/agents/agent-presets-store";
+import { useSettingsEnvironmentPickStore } from "@/stores/settings/settings-environment-pick-store";
 import { useSettingsStore } from "@/stores/settings/settings-store";
 
 function hostPresets() {
@@ -94,10 +101,17 @@ describe("<AgentPresetsTab />", () => {
 
   afterEach(() => {
     cleanup();
+    scopeHost.hostId = HOST;
+    useSettingsEnvironmentPickStore.getState().setPick(null);
   });
 
   it("saves a new preset with the model the host resolves", async () => {
-    render(<AgentPresetsTab />);
+    render(
+      <AgentPresetsTab
+        requestedHostId={null}
+        onRequestSettled={() => undefined}
+      />,
+    );
     expect(screen.getByText("No presets on this host yet.")).toBeTruthy();
 
     await userEvent.click(screen.getByTestId("agent-presets-new"));
@@ -136,9 +150,15 @@ describe("<AgentPresetsTab />", () => {
       serviceTier: null,
       permissionMode: "supervised",
       profileId: null,
+      guideNote: null,
       isDefault: false,
     });
-    render(<AgentPresetsTab />);
+    render(
+      <AgentPresetsTab
+        requestedHostId={null}
+        onRequestSettled={() => undefined}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     const name = screen.getByTestId("agent-preset-name");
@@ -152,5 +172,32 @@ describe("<AgentPresetsTab />", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(hostPresets()).toEqual([]);
+  });
+
+  it("moves Settings to the machine a composer asked for before showing its presets", () => {
+    const onRequestSettled = vi.fn();
+    const { rerender } = render(
+      <AgentPresetsTab
+        requestedHostId="host-b"
+        onRequestSettled={onRequestSettled}
+      />,
+    );
+
+    expect(useSettingsEnvironmentPickStore.getState().pick).toEqual({
+      kind: "local",
+      hostId: "host-b",
+      hostName: "Studio",
+    });
+    expect(screen.queryByTestId("agent-presets-tab")).toBeNull();
+
+    scopeHost.hostId = "host-b";
+    rerender(
+      <AgentPresetsTab
+        requestedHostId="host-b"
+        onRequestSettled={onRequestSettled}
+      />,
+    );
+    expect(onRequestSettled).toHaveBeenCalled();
+    expect(screen.getByTestId("agent-presets-tab")).toBeTruthy();
   });
 });

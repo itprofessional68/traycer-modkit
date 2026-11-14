@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type {
-  HarnessOption,
-  ModelOption,
-  ProviderId,
+import {
+  PERMISSION_OPTIONS,
+  type HarnessOption,
+  type ModelOption,
+  type ProviderId,
 } from "@/components/home/data/landing-options";
 import {
   applyPreset,
@@ -92,6 +93,7 @@ const PRESET: AgentPreset = {
   serviceTier: null,
   permissionMode: "supervised",
   profileId: null,
+  guideNote: null,
   isDefault: false,
   updatedAt: 1,
 };
@@ -153,18 +155,29 @@ describe("applyPreset", () => {
     expect(result.selection.selection.modelSlug).toBe("retired");
     expect(result.notice).toBeNull();
   });
-
-  it("says when the agent can't run the saved permission mode", () => {
-    const result = applyPreset(
-      { ...PRESET, permissionMode: "auto_accept_edits" },
-      CLAUDE_LOADED,
-    );
-    expect(result.permission).toBe("auto_accept_edits");
-    expect(result.notice).toBe(
-      "Claude Code can't run Auto-accept edits, so the closest mode is used.",
-    );
-  });
 });
+
+function toolbarStore(catalogScope: ComposerToolbarCatalog) {
+  const store = createComposerToolbarStore({
+    purpose: "run",
+    reasoningFallback: "model-default",
+    seedKey: "preset-test",
+    values: {
+      permission: "full_access",
+      selection: { harnessId: "codex", modelSlug: "gpt", profileId: null },
+      reasoning: "",
+      serviceTier: "",
+      ultracode: false,
+    },
+    onSettingsChange: null,
+    tuiOnly: false,
+    chatLineCarriesAutoMode: null,
+    ultracodeCarried: false,
+    hostId: HOST,
+  });
+  store.getState().setCatalog(catalogScope);
+  return store;
+}
 
 describe("applyPresetToToolbar", () => {
   it("sets the preset's own effort, not the agent's remembered one", () => {
@@ -178,24 +191,7 @@ describe("applyPresetToToolbar", () => {
       profileId: null,
       ultracode: false,
     });
-    const store = createComposerToolbarStore({
-      purpose: "run",
-      reasoningFallback: "model-default",
-      seedKey: "preset-test",
-      values: {
-        permission: "full_access",
-        selection: { harnessId: "codex", modelSlug: "gpt", profileId: null },
-        reasoning: "",
-        serviceTier: "",
-        ultracode: false,
-      },
-      onSettingsChange: null,
-      tuiOnly: false,
-      chatLineCarriesAutoMode: null,
-      ultracodeCarried: false,
-      hostId: HOST,
-    });
-    store.getState().setCatalog(CLAUDE_LOADED);
+    const store = toolbarStore(CLAUDE_LOADED);
 
     expect(applyPresetToToolbar(store, PRESET)).toBeNull();
 
@@ -208,4 +204,37 @@ describe("applyPresetToToolbar", () => {
     expect(state.reasoning).toBe("high");
     expect(state.permission).toBe("supervised");
   });
+
+  it("says which mode the composer uses when the agent can't run the saved one", () => {
+    const store = toolbarStore(CLAUDE_LOADED);
+    const notice = applyPresetToToolbar(store, {
+      ...PRESET,
+      permissionMode: "auto_accept_edits",
+    });
+
+    expect(notice).toBe(
+      `Claude Code can't run Auto-accept edits here, so ${permissionLabelOf(store.getState().permission)} is used.`,
+    );
+  });
+
+  it("says nothing when the agent lists no modes, which means any", () => {
+    const store = toolbarStore({
+      ...CLAUDE_LOADED,
+      harnesses: [
+        { ...harness("claude", true), supportedPermissionModes: [] },
+        harness("codex", true),
+      ],
+    });
+
+    expect(
+      applyPresetToToolbar(store, {
+        ...PRESET,
+        permissionMode: "auto_accept_edits",
+      }),
+    ).toBeNull();
+  });
 });
+
+function permissionLabelOf(mode: string): string {
+  return PERMISSION_OPTIONS.find((option) => option.id === mode)?.label ?? mode;
+}

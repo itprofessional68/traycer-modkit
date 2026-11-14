@@ -2,17 +2,30 @@
  * Docs: see ../SETTINGS.md (Agents ▸ Presets).
  * Update that file whenever this settings surface changes.
  */
-import { useId, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import type { HostClient } from "@traycer-clients/shared/host-client/host-client";
 import {
   autoModeOfferableHere,
   catalogSupportedPermissionModes,
+  isFastModeEnabled,
   PERMISSION_OPTIONS,
+  type ProviderId,
 } from "@/components/home/data/landing-options";
 import { chatMaxModeContextForToolbar } from "@/components/home/data/model-max-mode";
-import { HarnessModelPicker } from "@/components/home/pickers/harness-model-picker";
+import {
+  HarnessModelPicker,
+  type HarnessModelPickerEmbedding,
+} from "@/components/home/pickers/harness-model-picker";
 import { PermissionsPicker } from "@/components/home/pickers/permissions-picker";
 import { HostScopeGate } from "@/components/settings/host-scope/host-scope-gate";
 import { usePersonalHostScope } from "@/components/settings/host-scope/use-host-scope";
@@ -30,9 +43,12 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useGuiHarnessesQueryForClient } from "@/hooks/harnesses/use-gui-harness-catalog";
+import { UNNAMED_HOST_LABEL } from "@/hooks/agent/use-host-reachability";
 import { useHostMethodSchemaVersion } from "@/hooks/host/use-host-supports-method";
 import { useWorkspaceListRecentWorkspaces } from "@/hooks/workspace/use-workspace-list-recent-workspaces-query";
+import { PresetGuideNoteButton } from "@/components/settings/panels/preset-guide-note-button";
 import type { HostRpcRegistry } from "@/lib/host";
 import {
   normalizeRepoPath,
@@ -41,7 +57,11 @@ import {
   useAgentPresetsStore,
   type AgentPreset,
 } from "@/stores/agents/agent-presets-store";
-import type { ComposerToolbarValues } from "@/stores/composer/composer-toolbar-store";
+import type {
+  ComposerToolbarStore,
+  ComposerToolbarValues,
+} from "@/stores/composer/composer-toolbar-store";
+import { useSettingsEnvironmentPickStore } from "@/stores/settings/settings-environment-pick-store";
 import { useSettingsStore } from "@/stores/settings/settings-store";
 
 const PRESETS_CAPTION =
@@ -58,14 +78,51 @@ type Editing =
  * Settings ▸ Agents ▸ Presets, for the host the sidebar names. Reads go
  * through the scope's own client, so nothing here re-provides the ambient
  * binding.
+ *
+ * `requestedHostId` is the machine a "Manage presets…" asked for. Presets are
+ * that machine's, whatever configuration Settings is showing, so Settings
+ * moves to the machine's own row, as choosing it in the Environment dropdown
+ * would, and the body waits until the scope names it: it never mounts, or
+ * saves, against the machine Settings is leaving.
  */
-export function AgentPresetsTab(): ReactNode {
+export function AgentPresetsTab(props: {
+  readonly requestedHostId: string | null;
+  readonly onRequestSettled: () => void;
+}): ReactNode {
+  const { requestedHostId, onRequestSettled } = props;
   const scope = usePersonalHostScope();
+  const setPick = useSettingsEnvironmentPickStore((state) => state.setPick);
+  const requestSettled =
+    requestedHostId === null ||
+    scope.hostId === requestedHostId ||
+    scope.status === "vanished";
+  const requestedHostName =
+    requestedHostId === null
+      ? null
+      : (scope.hosts.find((host) => host.hostId === requestedHostId)?.name ??
+        UNNAMED_HOST_LABEL);
+  useLayoutEffect(() => {
+    if (requestedHostId === null || requestedHostName === null) return;
+    if (requestSettled) {
+      onRequestSettled();
+      return;
+    }
+    setPick({
+      kind: "local",
+      hostId: requestedHostId,
+      hostName: requestedHostName,
+    });
+  }, [
+    requestedHostId,
+    requestedHostName,
+    requestSettled,
+    onRequestSettled,
+    setPick,
+  ]);
+  const skeleton = <Skeleton className="h-24 w-full" />;
+  if (!requestSettled) return skeleton;
   return (
-    <HostScopeGate
-      scope={scope}
-      skeleton={<Skeleton className="h-24 w-full" />}
-    >
+    <HostScopeGate scope={scope} skeleton={skeleton}>
       <AgentPresetsBody hostId={scope.hostId} client={scope.client} />
     </HostScopeGate>
   );
@@ -148,6 +205,13 @@ function AgentPresetsBody(props: {
                       {presetSummary(preset, harnessLabel(preset.harnessId))}
                     </span>
                   </div>
+                  {preset.guideNote === null ? null : (
+                    <PresetGuideNoteButton
+                      client={client}
+                      repoPath={preset.repoPath}
+                      note={preset.guideNote}
+                    />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -199,30 +263,18 @@ function AgentPresetForm(props: {
       serviceTier: state.defaultServiceTier,
     })),
   );
-  const [seed] = useState<ComposerToolbarValues>(() =>
-    preset === null
-      ? { ...defaults, ultracode: false }
-      : {
-          permission: preset.permissionMode,
-          selection: {
-            harnessId: preset.harnessId,
-            modelSlug: preset.model,
-            profileId: preset.profileId,
-          },
-          reasoning: preset.reasoningEffort ?? "",
-          serviceTier: preset.serviceTier ?? "",
-          ultracode: false,
-        },
-  );
+  const [seed] = useState(() => presetFormSeed(preset, defaults));
   const store = usePresetToolbarStore({ client, values: seed });
-  const [name, setName] = useState(preset?.name ?? "");
-  const [repoPath, setRepoPath] = useState(
-    preset?.repoPath ?? (projects.length > 0 ? projects[0] : ""),
-  );
+  const embedding = usePresetPickerEmbedding(store, hostId === null);
+  const [fields] = useState(() => presetFormFields(preset, projects));
+  const [name, setName] = useState(fields.name);
+  const [repoPath, setRepoPath] = useState(fields.repoPath);
   const [typingPath, setTypingPath] = useState(projects.length === 0);
-  const [isDefault, setIsDefault] = useState(preset?.isDefault ?? false);
+  const [isDefault, setIsDefault] = useState(fields.isDefault);
+  const [guideNote, setGuideNote] = useState(fields.guideNote);
   const nameId = useId();
   const projectId = useId();
+  const guideNoteId = useId();
   const defaultId = useId();
 
   const modelSlug = useStore(store, (state) => state.selection.modelSlug);
@@ -270,6 +322,7 @@ function AgentPresetForm(props: {
       serviceTier: state.serviceTier.length === 0 ? null : state.serviceTier,
       permissionMode: state.permission,
       profileId: state.selection.profileId,
+      guideNote: guideNote.trim().length === 0 ? null : guideNote.trim(),
       isDefault,
     });
     onDone();
@@ -357,7 +410,7 @@ function AgentPresetForm(props: {
             runTargetHostId={hostId}
             terminalLoginSurface={null}
             profileAdmission={null}
-            embedding={null}
+            embedding={embedding}
           />
           <PermissionsPicker
             value={permission}
@@ -378,6 +431,18 @@ function AgentPresetForm(props: {
             interactive={false}
           />
         </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={guideNoteId}>Guide note</Label>
+        <Textarea
+          id={guideNoteId}
+          value={guideNote}
+          size="sm"
+          rows={3}
+          placeholder="A paragraph for this project's agent selection guide (optional)"
+          data-testid="agent-preset-guide-note"
+          onChange={(event) => setGuideNote(event.target.value)}
+        />
       </div>
       <div className="flex items-center gap-2">
         <Switch
@@ -405,6 +470,51 @@ function AgentPresetForm(props: {
   );
 }
 
+/** The form's text fields: the preset's, or empty in the first project. */
+function presetFormFields(
+  preset: AgentPreset | null,
+  projects: ReadonlyArray<string>,
+): {
+  readonly name: string;
+  readonly repoPath: string;
+  readonly isDefault: boolean;
+  readonly guideNote: string;
+} {
+  if (preset === null) {
+    return {
+      name: "",
+      repoPath: projects.length > 0 ? projects[0] : "",
+      isDefault: false,
+      guideNote: "",
+    };
+  }
+  return {
+    name: preset.name,
+    repoPath: preset.repoPath,
+    isDefault: preset.isDefault,
+    guideNote: preset.guideNote ?? "",
+  };
+}
+
+/** The pickers' values: the preset's, or the app's defaults for a new one. */
+function presetFormSeed(
+  preset: AgentPreset | null,
+  defaults: Omit<ComposerToolbarValues, "ultracode">,
+): ComposerToolbarValues {
+  if (preset === null) return { ...defaults, ultracode: false };
+  return {
+    permission: preset.permissionMode,
+    selection: {
+      harnessId: preset.harnessId,
+      modelSlug: preset.model,
+      profileId: preset.profileId,
+    },
+    reasoning: preset.reasoningEffort ?? "",
+    serviceTier: preset.serviceTier ?? "",
+    ultracode: false,
+  };
+}
+
 /** The projects a preset can be saved for: existing ones, then recents. */
 function knownProjects(
   presets: ReadonlyArray<AgentPreset>,
@@ -427,4 +537,66 @@ function presetSummary(preset: AgentPreset, harnessLabel: string): string {
   return [harnessLabel, preset.model, preset.reasoningEffort, permission]
     .filter((part) => part !== null)
     .join(" · ");
+}
+
+/**
+ * The model picker's Settings embedding: its own face, and no composer
+ * behaviour. Without one the picker is a composer's - closing it hands focus
+ * to whichever composer is registered, which can pull the window away from
+ * Settings, and a provider switch restores the model last used in a chat.
+ * Here a switch keeps the model on a click of the provider already chosen and
+ * otherwise lands on that provider's first model once its catalog loads
+ * (`""`, which the setting store resolves).
+ */
+function usePresetPickerEmbedding(
+  store: ComposerToolbarStore,
+  disabled: boolean,
+): HarnessModelPickerEmbedding {
+  const harnessLabel = useStore(store, (state) => state.harnessLabel);
+  const selection = useStore(store, (state) => state.selection);
+  const modelLabel = useStore(
+    store,
+    (state) => state.selectedModel?.label ?? state.selection.modelSlug,
+  );
+  const reasoning = useStore(store, (state) => state.reasoning);
+  const fast = useStore(store, (state) => isFastModeEnabled(state.serviceTier));
+  const openRef = useRef<(() => void) | null>(null);
+  const providerSwitchModel = useCallback(
+    (next: ProviderId): string => {
+      const current = store.getState().values.selection;
+      return current.harnessId === next ? current.modelSlug : "";
+    },
+    [store],
+  );
+  const face = [
+    harnessLabel ?? selection.harnessId,
+    modelLabel.length === 0 ? "Choose a model" : modelLabel,
+    reasoning.length === 0 ? null : reasoning,
+    fast ? "Fast" : null,
+  ]
+    .filter((part) => part !== null)
+    .join(" · ");
+  return useMemo(
+    () => ({
+      trigger: (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={disabled}
+          data-testid="agent-preset-model"
+        >
+          {face}
+        </Button>
+      ),
+      providerSwitchModel,
+      selectionMarked: true,
+      openRef,
+      closeRef: null,
+      followSelectionRef: null,
+      onOpenChange: null,
+      footer: null,
+    }),
+    [disabled, face, providerSwitchModel],
+  );
 }

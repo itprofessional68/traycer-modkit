@@ -5152,8 +5152,14 @@ min`): "The judge didn't finish in time, so it's asking you instead."
 
   The **Presets** tab (`panels/agent-presets-tab.tsx`) keeps named agent setups
   per project on the host the sidebar names: name, project folder, agent,
-  model, effort, Fast, access mode and an optional "Use for new agents in this
-  project" switch (at most one default per project). Presets live in this app
+  model, effort, Fast, access mode, an optional guide note and an optional
+  "Use for new agents in this project" switch (at most one default per
+  project). A row with a guide note has **Add to guide**, which appends the
+  note as the last paragraph of the project's
+  `.traycer/agent-selection-guide.md` on that host (read, then a write guarded
+  by the read's revision; a guide that already holds the note is left alone).
+  A project without a guide gets none made for it: the note is copied
+  instead. Presets live in this app
   (`stores/agents/agent-presets-store.ts`, persisted, bucketed by host id
   because a project is a local path), not on the host. Caption: "Saved agent
   setups for a project on this host. Pick one from the composer's Presets menu;
@@ -5162,9 +5168,17 @@ min`): "The judge didn't finish in time, so it's asking you instead."
   plus the projects existing presets name, with "Another folder…" for a typed
   path. The pickers run on a `purpose: "setting"` toolbar store with no host
   memory (`use-preset-toolbar-store.ts`), so editing a preset never changes what
-  the composer remembers. The tab reads through the scope's own client inside
-  `HostScopeGate` and re-provides no binding. The composer's Presets menu
-  (beside the model picker) applies one; the new-agent dialog in a Task starts
+  the composer remembers, and the model picker takes a Settings embedding (its
+  own face, no composer focus hand-off, a provider switch lands on that
+  provider's first model). The tab reads through the scope's own client inside
+  `HostScopeGate` and re-provides no binding. The composer's "Manage
+  presets…" opens this tab for the composer's machine: when Settings is
+  showing another machine or a team configuration, the tab moves the
+  Environment pick to that machine's own row before its body mounts. The
+  composer's Presets menu (beside the model picker) applies one; a chat tab's
+  right-click menu has **Apply preset**, which moves that chat onto a preset
+  through `agent.configure` (owner only, routing kept, a Fast preset only on a
+  host whose `agent.configure` carries the tier); the new-agent dialog in a Task starts
   from the Task's last settings, then the project's default preset, then the
   host's last settings.
 

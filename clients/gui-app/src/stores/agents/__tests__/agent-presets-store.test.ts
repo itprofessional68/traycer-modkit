@@ -22,6 +22,7 @@ function preset(overrides: Partial<AgentPresetDraft>): AgentPresetDraft {
     serviceTier: null,
     permissionMode: "supervised",
     profileId: null,
+    guideNote: null,
     isDefault: false,
     ...overrides,
   };

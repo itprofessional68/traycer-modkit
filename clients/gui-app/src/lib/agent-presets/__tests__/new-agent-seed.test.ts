@@ -29,6 +29,7 @@ const PRESET: AgentPreset = {
   serviceTier: "priority",
   permissionMode: "supervised",
   profileId: "work-account",
+  guideNote: null,
   isDefault: true,
   updatedAt: 1,
 };

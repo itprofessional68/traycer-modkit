@@ -83,7 +83,10 @@ export function ChatRoutingTabMenu(props: ChatRoutingTabMenuProps) {
       handle === null ? null : (handle.store.getState().access?.role ?? null),
   );
   const client = useHostClientForHostId(hostId);
-  const configure = useAgentConfigure(client);
+  const configure = useAgentConfigure(
+    client,
+    "Couldn't change what this agent does on a usage limit.",
+  );
   const version = useHostMethodSchemaVersion(hostId, "agent.configure");
   if (
     chat === null ||
