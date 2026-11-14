@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { useStore } from "zustand";
 import { HarnessModelPicker } from "@/components/home/pickers/harness-model-picker";
 import { chatMaxModeContextForToolbar } from "@/components/home/data/model-max-mode";
+import { ComposerPresetsMenu } from "@/components/home/toolbar/composer-presets-menu";
 import type { ComposerToolbarItemsProps } from "@/components/home/toolbar/composer-toolbar-item";
 
 export function ComposerModelPicker(
@@ -13,7 +14,7 @@ export function ComposerModelPicker(
     () => chatMaxModeContextForToolbar(reasoning, serviceTier),
     [reasoning, serviceTier],
   );
-  return (
+  const picker = (
     <HarnessModelPicker
       withUltracode
       labelDisplay="responsive"
@@ -32,5 +33,17 @@ export function ComposerModelPicker(
       profileAdmission={null}
       embedding={null}
     />
+  );
+  // The sample workspace draws this toolbar too; a preset there would apply
+  // to nothing.
+  if (props.presentation) return picker;
+  return (
+    <>
+      {picker}
+      <ComposerPresetsMenu
+        store={props.store}
+        disabled={props.settingsLocked}
+      />
+    </>
   );
 }

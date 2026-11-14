@@ -488,6 +488,13 @@ export const PERSIST_STORES = [
     leaf: "sandbox-shape-memory",
     kind: "static",
   },
+  // Named agent setups per host and project (`agent-presets-store.ts`). A
+  // project is a local path, so the host id rides inside the record.
+  {
+    camelName: "agentPresets",
+    leaf: "agent-presets",
+    kind: "static",
+  },
   // The last verified picture and name of each account signed in here, for a
   // restored session the credentials file cannot name
   // (`verified-profile-cache-store.ts`).

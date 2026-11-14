@@ -953,7 +953,7 @@ Account; the rest is the app itself.
   the row; **Sign out everywhere** is on the list.
 - **Environment** (group id `personal`) - Providers, MCP servers, Skills,
   Permissions, Memories (id `agent-memories`), Agents (id `agents`:
-  tabs Selection guide and Definitions), Model routing, Variables & shells
+  tabs Selection guide, Definitions and Presets), Model routing, Variables & shells
   (id `shell`), Secrets, Sandboxes, Storage, and Members on a team; a Local
   row shows only Providers, Permissions, Agents,
   Model routing, Variables & shells and Secrets. Browser agent access is the
@@ -5116,7 +5116,7 @@ min`): "The judge didn't finish in time, so it's asking you instead."
     the anchor's one target.
 
 - `Agents` (section id `agents`, route `/settings/agents` - both kept as
-  compatibility identifiers), tabs Selection guide and Definitions. Selection
+  compatibility identifiers), tabs Selection guide, Definitions and Presets. Selection
   guide is the editor for the **global** agent selection guide
   (`~/.traycer/agent-selection-guide.md`) - the instructions Traycer agents read
   to choose harnesses, models, and reasoning effort when creating or
@@ -5149,6 +5149,25 @@ min`): "The judge didn't finish in time, so it's asking you instead."
   hooks. This settings panel edits only the global guide. A workspace can add
   `.traycer/agent-selection-guide.md` manually; agents layer that file over the
   global guide when they work in that workspace.
+
+  The **Presets** tab (`panels/agent-presets-tab.tsx`) keeps named agent setups
+  per project on the host the sidebar names: name, project folder, agent,
+  model, effort, Fast, access mode and an optional "Use for new agents in this
+  project" switch (at most one default per project). Presets live in this app
+  (`stores/agents/agent-presets-store.ts`, persisted, bucketed by host id
+  because a project is a local path), not on the host. Caption: "Saved agent
+  setups for a project on this host. Pick one from the composer's Presets menu;
+  a project's default starts new agents there." The project list is the
+  host's recent workspaces (`workspace.prepareFolders` `listRecentWorkspaces`)
+  plus the projects existing presets name, with "Another folder…" for a typed
+  path. The pickers run on a `purpose: "setting"` toolbar store with no host
+  memory (`use-preset-toolbar-store.ts`), so editing a preset never changes what
+  the composer remembers. The tab reads through the scope's own client inside
+  `HostScopeGate` and re-provides no binding. The composer's Presets menu
+  (beside the model picker) applies one; the new-agent dialog in a Task starts
+  from the Task's last settings, then the project's default preset, then the
+  host's last settings.
+
 - `Fallback` (section id `fallback`, route `/settings/fallback`,
   `panels/fallback-settings-panel.tsx` plus `panels/fallback/`) The whole
   configuration surface for **automatic provider fallback**: what the host does

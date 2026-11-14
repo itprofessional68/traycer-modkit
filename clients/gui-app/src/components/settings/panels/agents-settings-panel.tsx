@@ -2,20 +2,31 @@
  * Docs: see ../SETTINGS.md
  * Update that file whenever this settings surface changes.
  */
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
 import { EnvironmentHostBinding } from "@/components/settings/environment/environment-host-binding";
+import { carryViewedHostIntoSettingsScope } from "@/components/settings/host-scope/carry-viewed-host-into-settings";
 import { AGENT_SELECTION } from "@/components/settings/panels/agents-settings.definitions";
 import { AgentDefinitionsTab } from "@/components/settings/panels/agent-definitions-tab";
+import { AgentPresetsTab } from "@/components/settings/panels/agent-presets-tab";
 import { SettingsPanelShell } from "@/components/settings/settings-panel-shell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  acknowledgeSettingsOpenIntent,
+  useSettingsOpenIntent,
+} from "@/stores/tabs/settings-open-intent-store";
 import { AgentSelectionGuideSection } from "./agent-selection-guide-section";
 
-type AgentsTab = "guide" | "definitions";
-const AGENTS_TABS: ReadonlyArray<AgentsTab> = ["guide", "definitions"];
+type AgentsTab = "guide" | "definitions" | "presets";
+const AGENTS_TABS: ReadonlyArray<AgentsTab> = [
+  "guide",
+  "definitions",
+  "presets",
+];
 
 const AGENTS_TAB_LABELS: Readonly<Record<AgentsTab, string>> = {
   guide: "Selection guide",
   definitions: "Definitions",
+  presets: "Presets",
 };
 
 // The guide reaches only the agents Traycer creates; a coding agent's own
@@ -28,13 +39,27 @@ function isAgentsTab(value: string): value is AgentsTab {
 }
 
 /**
- * Settings ▸ Agents: two tabs over the configuration's room files. Selection
- * guide is the markdown guide agents read to pick a harness, model and effort,
- * and keeps the full panel height for its editor; Definitions is one file per
- * agent definition a harness can start.
+ * Settings ▸ Agents: three tabs. Selection guide is the markdown guide agents
+ * read to pick a harness, model and effort, and keeps the full panel height for
+ * its editor; Definitions is one file per agent definition a harness can
+ * start; Presets are named agent setups per project, kept in this app.
  */
 export function AgentsSettingsPanel(): ReactNode {
   const [tab, setTab] = useState<AgentsTab>("guide");
+  // An `openSettings` call naming a tab (the composer's "Manage presets…")
+  // is applied once per arm during render, so that tab is the first drawn;
+  // its machine becomes the Settings scope before paint.
+  const intent = useSettingsOpenIntent("agents");
+  const [appliedIntentId, setAppliedIntentId] = useState<number | null>(null);
+  if (intent !== null && intent.id !== appliedIntentId) {
+    setAppliedIntentId(intent.id);
+    if (intent.tab !== null && isAgentsTab(intent.tab)) setTab(intent.tab);
+  }
+  useLayoutEffect(() => {
+    if (intent === null) return;
+    carryViewedHostIntoSettingsScope(intent.hostId);
+    acknowledgeSettingsOpenIntent(intent.id);
+  }, [intent]);
   return (
     <SettingsPanelShell
       title={AGENT_SELECTION.page.label}
@@ -81,6 +106,9 @@ export function AgentsSettingsPanel(): ReactNode {
           <EnvironmentHostBinding>
             <AgentDefinitionsTab />
           </EnvironmentHostBinding>
+        </TabsContent>
+        <TabsContent value="presets" className="pt-5">
+          <AgentPresetsTab />
         </TabsContent>
       </Tabs>
     </SettingsPanelShell>

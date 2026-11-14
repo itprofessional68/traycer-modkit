@@ -240,6 +240,10 @@ import {
 } from "@/stores/composer/composer-toolbar-store";
 import { fallbackSeedSource } from "@/lib/composer/composer-seed-source";
 import type { TerminalAgentLaunch } from "@/components/home/hooks/use-landing-composer-actions";
+import {
+  selectDefaultPreset,
+  useAgentPresetsStore,
+} from "@/stores/agents/agent-presets-store";
 import { useAuthStore } from "@/stores/auth/auth-store";
 import { useAccountContextStore } from "@/stores/auth/account-context-store";
 import { useEpicCanvasStore } from "@/stores/epics/canvas/store";
@@ -259,6 +263,10 @@ import {
   type ExplicitTilePlacement,
 } from "@/lib/canvas/tile-open/intent";
 import type { LandingDraftWorkspaceSnapshot } from "@/stores/home/landing-draft-store";
+import {
+  newAgentProject,
+  newAgentSeedSettings,
+} from "@/lib/agent-presets/new-agent-seed";
 import { useSettingsStore } from "@/stores/settings/settings-store";
 import {
   selectEpicRunSettingsEntry,
@@ -2920,10 +2928,11 @@ function useNewConversationModalSeed(
 ): NewConversationModalSeed {
   const latestSettingsSeed = useLatestConversationSettingsSeed();
   const globalWorkspace = useGlobalWorkspaceSnapshot(hostId);
+  const workspace = latestWorkspaceSeed?.workspace ?? globalWorkspace;
   // Carry forward the last settings used on this epic ON THIS HOST (the
-  // chat-tile composer writes `setEpicRunSettings` on send), then the same
-  // host's cross-epic last-run, then the projected latest-conversation
-  // settings as a final fallback.
+  // chat-tile composer writes `setEpicRunSettings` on send), then the
+  // project's default preset, then the same host's cross-epic last-run, then
+  // the projected latest-conversation settings (`newAgentSeedSettings`).
   const runSettingsSeed = useComposerRunSettingsStore(
     useShallow((state) => ({
       epicRunSettings:
@@ -2931,17 +2940,22 @@ function useNewConversationModalSeed(
       globalLastRunSettings: selectGlobalLastRunSettings(state, hostId),
     })),
   );
+  const defaultPreset = useAgentPresetsStore((state) =>
+    selectDefaultPreset(state, hostId, newAgentProject(workspace)),
+  );
   return useMemo(
     () => ({
       content: createEmptyNewConversationContent(),
-      settings:
-        runSettingsSeed.epicRunSettings ??
-        runSettingsSeed.globalLastRunSettings ??
-        latestSettingsSeed.settings,
+      settings: newAgentSeedSettings({
+        epicRunSettings: runSettingsSeed.epicRunSettings,
+        defaultPreset,
+        globalLastRunSettings: runSettingsSeed.globalLastRunSettings,
+        latestSettings: latestSettingsSeed.settings,
+      }),
       composerMode: latestSettingsSeed.composerMode,
-      workspace: latestWorkspaceSeed?.workspace ?? globalWorkspace,
+      workspace,
     }),
-    [globalWorkspace, latestSettingsSeed, latestWorkspaceSeed, runSettingsSeed],
+    [defaultPreset, latestSettingsSeed, runSettingsSeed, workspace],
   );
 }
 

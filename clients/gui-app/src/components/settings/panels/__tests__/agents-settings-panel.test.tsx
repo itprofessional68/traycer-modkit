@@ -2,13 +2,16 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Both tabs have their own suites; here they are markers, so the page's title
-// and tab switching are what is under test.
+// Each tab has its own suite; here they are markers, so the page's title and
+// tab switching are what is under test.
 vi.mock("@/components/settings/panels/agent-selection-guide-section", () => ({
   AgentSelectionGuideSection: () => <div data-testid="guide-body" />,
 }));
 vi.mock("@/components/settings/panels/agent-definitions-tab", () => ({
   AgentDefinitionsTab: () => <div data-testid="definitions-body" />,
+}));
+vi.mock("@/components/settings/panels/agent-presets-tab", () => ({
+  AgentPresetsTab: () => <div data-testid="presets-body" />,
 }));
 vi.mock("@/components/settings/environment/environment-host-binding", () => ({
   EnvironmentHostBinding: (props: { readonly children: React.ReactNode }) => (
@@ -67,5 +70,16 @@ describe("<AgentsSettingsPanel />", () => {
     await userEvent.click(screen.getByTestId("agents-tab-guide"));
     expect(screen.getByTestId("guide-body")).toBeTruthy();
     expect(screen.queryByTestId("definitions-body")).toBeNull();
+  });
+
+  it("switches to Presets", async () => {
+    render(<AgentsSettingsPanel />);
+
+    await userEvent.click(screen.getByTestId("agents-tab-presets"));
+    expect(screen.getByTestId("agents-tab-presets").textContent).toBe(
+      "Presets",
+    );
+    expect(screen.getByTestId("presets-body")).toBeTruthy();
+    expect(screen.queryByTestId("guide-body")).toBeNull();
   });
 });
