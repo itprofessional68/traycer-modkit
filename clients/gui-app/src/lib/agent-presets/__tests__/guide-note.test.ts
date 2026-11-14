@@ -26,6 +26,12 @@ describe("guideWithNote", () => {
     );
   });
 
+  it("finds the note directly under a heading", () => {
+    expect(
+      guideWithNote("# Guide\nPrefer Opus here.\n", "Prefer Opus here."),
+    ).toBeNull();
+  });
+
   it("changes nothing when the guide already has the note", () => {
     expect(
       guideWithNote("# Guide\n\nPrefer Opus here.\n", " Prefer Opus here. "),

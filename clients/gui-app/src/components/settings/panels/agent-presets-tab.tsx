@@ -66,6 +66,8 @@ const PRESETS_CAPTION =
 
 const OTHER_PROJECT = "__other__";
 
+const UNLISTED_MACHINE_LABEL = "A machine not in your list";
+
 type Editing =
   | { readonly kind: "closed" }
   | { readonly kind: "new" }
@@ -111,6 +113,12 @@ export function AgentPresetsTab(props: {
                 {row.name}
               </SelectItem>
             ))}
+            {/* A machine kept from a request or an earlier choice that the
+                host lists no longer name still has presets here, and Delete
+                still acts on them, so the field must not go blank. */}
+            {hostId !== null && host === null ? (
+              <SelectItem value={hostId}>{UNLISTED_MACHINE_LABEL}</SelectItem>
+            ) : null}
           </SelectContent>
         </Select>
       </div>
@@ -136,12 +144,16 @@ function AgentPresetsBody(props: {
   );
   const deletePreset = useAgentPresetsStore((state) => state.deletePreset);
   const [editing, setEditing] = useState<Editing>({ kind: "closed" });
+  // Not asked of a machine that is not connected: its presets are this app's
+  // and list without it, and editing waits until it answers.
   const harnesses = useGuiHarnessesQueryForClient(client, {
-    enabled: true,
-    subscribed: true,
+    enabled: connectable,
+    subscribed: connectable,
   }).data?.harnesses;
-  const recents = useWorkspaceListRecentWorkspaces({ client, enabled: true })
-    .data?.recentWorkspaces;
+  const recents = useWorkspaceListRecentWorkspaces({
+    client,
+    enabled: connectable,
+  }).data?.recentWorkspaces;
   const projects = useMemo(
     () => knownProjects(presets, recents?.map((row) => row.path) ?? []),
     [presets, recents],

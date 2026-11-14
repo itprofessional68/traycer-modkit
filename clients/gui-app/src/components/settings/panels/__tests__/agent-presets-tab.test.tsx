@@ -190,4 +190,14 @@ describe("<AgentPresetsTab />", () => {
     ).toBe(true);
     expect(screen.queryByTestId("agent-preset-add-to-guide")).toBeNull();
   });
+
+  it("names a machine the host lists no longer have, so its presets are not anonymous", () => {
+    render(
+      <AgentPresetsTab hostId="host-gone" onHostChange={() => undefined} />,
+    );
+
+    expect(screen.getByTestId("agent-presets-machine").textContent).toBe(
+      "A machine not in your list",
+    );
+  });
 });

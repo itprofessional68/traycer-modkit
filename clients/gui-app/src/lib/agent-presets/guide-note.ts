@@ -34,10 +34,30 @@ function guideHasParagraphs(guide: string, note: string): boolean {
   );
 }
 
+/**
+ * The text's paragraphs: blocks between blank lines, with a Markdown heading
+ * line its own block, as Markdown reads a heading with no blank line under it.
+ */
 function paragraphsOf(text: string): ReadonlyArray<string> {
   return text
     .replace(/\r\n/g, "\n")
     .split(/\n[ \t]*\n/)
+    .flatMap(splitOffHeadings)
     .map((paragraph) => paragraph.trim())
     .filter((paragraph) => paragraph.length > 0);
+}
+
+function splitOffHeadings(block: string): ReadonlyArray<string> {
+  const parts: Array<string> = [];
+  let lines: Array<string> = [];
+  for (const line of block.split("\n")) {
+    if (/^ {0,3}#{1,6}(\s|$)/.test(line)) {
+      parts.push(lines.join("\n"), line);
+      lines = [];
+    } else {
+      lines.push(line);
+    }
+  }
+  parts.push(lines.join("\n"));
+  return parts;
 }

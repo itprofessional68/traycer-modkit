@@ -5175,8 +5175,10 @@ min`): "The judge didn't finish in time, so it's asking you instead."
   selected. Presets are app data kept per machine, not a host file, so the
   tab never moves the Settings scope or Environment pick, and it reads
   through the selected machine's own client (no binding re-provided, no
-  `HostScopeGate`). A machine that is not connected still lists its presets;
-  New, Edit and Add to guide wait until it is. The
+  `HostScopeGate`). A machine that is not connected still lists its presets
+  and is not asked for anything; New, Edit and Add to guide wait until it is.
+  A machine kept in the selector that the host lists no longer name shows as
+  "A machine not in your list", so its presets are never shown unlabelled. The
   composer's Presets menu (beside the model picker) applies one; a chat tab's
   right-click menu has **Apply preset**, which moves that chat onto a preset
   through `agent.configure` (owner only, routing kept, a Fast preset only on a
