@@ -88,7 +88,8 @@ export function extendTraycerSanitizeSchema(schema: Schema): Schema {
         ...DRIVE_LETTER_SCHEMES,
       ],
     },
-    tagNames: [...(schema.tagNames ?? []), ...TRAYCER_TAG_NAMES],
+    // `u` is how markdown spells underline; it takes no attributes.
+    tagNames: [...(schema.tagNames ?? []), ...TRAYCER_TAG_NAMES, "u"],
     attributes: mergeTraycerTagAttributes(schema.attributes),
   };
 }

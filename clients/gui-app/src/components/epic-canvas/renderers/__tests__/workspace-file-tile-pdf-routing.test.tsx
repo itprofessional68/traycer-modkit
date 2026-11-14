@@ -131,6 +131,7 @@ vi.mock("@/hooks/workspace/use-file-edit-session", () => ({
     activate: vi.fn(),
     setDraft: vi.fn(),
     flush: vi.fn(),
+    release: vi.fn(),
     retry: vi.fn(),
     resolveKeepMine: vi.fn(),
     resolveUseDisk: vi.fn(),

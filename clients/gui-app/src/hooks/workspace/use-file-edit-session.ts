@@ -39,6 +39,8 @@ export interface FileEditSessionController {
   ) => Promise<DiffEditActivationResult>;
   readonly setDraft: (content: string) => void;
   readonly flush: () => void;
+  /** Saves pending edits and gives up this surface's ownership of the file. */
+  readonly release: () => void;
   readonly retry: () => void;
   readonly resolveKeepMine: (diskContent: string) => Promise<void>;
   readonly resolveUseDisk: (diskContent: string) => Promise<void>;
@@ -238,6 +240,9 @@ export function useFileEditSession(props: {
   const flush = useCallback((): void => {
     void attachmentRef.current?.runtime.flush();
   }, []);
+  const release = useCallback((): void => {
+    attachmentRef.current?.runtime.releaseOwnership(props.surfaceId);
+  }, [props.surfaceId]);
   const retry = useCallback((): void => {
     void attachmentRef.current?.runtime.retry();
   }, []);
@@ -273,6 +278,7 @@ export function useFileEditSession(props: {
     activate,
     setDraft,
     flush,
+    release,
     retry,
     resolveKeepMine,
     resolveUseDisk,

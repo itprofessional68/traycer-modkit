@@ -6,7 +6,10 @@ import { CopyPathButton } from "@/components/copy-path-button";
 import { HoverCard } from "@/components/ui/hover-card";
 import { resolveAbsolutePath } from "@/lib/path/cross-platform-path";
 import { useWorkspaceReadFile } from "@/hooks/workspace/use-read-file-query";
-import { useFileEditSession } from "@/hooks/workspace/use-file-edit-session";
+import {
+  useFileEditSession,
+  type FileEditSessionController,
+} from "@/hooks/workspace/use-file-edit-session";
 import { fileEditRuntimeRegistry } from "@/lib/workspace/file-edit-runtime-registry";
 import type { FileEditRuntime } from "@/lib/workspace/file-edit-runtime";
 import { languageFromFilePath } from "@/lib/file-change-diff-hunks";
@@ -59,6 +62,7 @@ import { Label } from "@/components/ui/label";
 import { useIsMobileViewport } from "@/hooks/ui/use-mobile-viewport";
 import "@/components/layout/shell/mobile-shell-touch-targets.css";
 import { FileAutosaveStatus } from "@/components/diff/file-autosave-status";
+import { MarkdownSplitEditor } from "@/components/markdown-editor/markdown-split-editor";
 import {
   useDiffClickToEdit,
   type DiffClickToEditAdapter,
@@ -118,7 +122,7 @@ const DOCUMENT_VIEWERS: Record<
   },
 };
 
-type WorkspaceFileViewMode = "source" | "preview";
+type WorkspaceFileViewMode = "source" | "preview" | "edit";
 
 interface WorkspaceFileSourceFindTargetWithNonce extends WorkspaceFileSourceFindTarget {
   readonly nonce: number;
@@ -130,7 +134,11 @@ const MARKDOWN_VIEW_MODE_OPTIONS: ReadonlyArray<{
 }> = [
   { mode: "preview", label: "Preview" },
   { mode: "source", label: "Markdown" },
+  { mode: "edit", label: "Edit" },
 ];
+
+/** Where the split editor starts claiming a file it was opened on. */
+const SPLIT_EDITOR_ORIGIN_CARET = { lineNumber: 1, character: 0 };
 
 /**
  * Host-binding gate for the file preview.
@@ -748,14 +756,29 @@ function WorkspaceFileTileLive(props: {
   // target right after the scroll, so a markdown file the user had on
   // preview returns to preview once the one-shot reveal completes. Line links
   // are almost always to code files, where source is the only view anyway.
-  const effectiveViewMode = editing
-    ? "source"
-    : computeViewMode(
-        revealTarget !== null,
-        markdownFile,
-        viewMode,
-        markdownPreviewDisabled,
-      );
+  const {
+    effectiveViewMode,
+    findViewMode,
+    splitEditAvailable,
+    splitEditorContent,
+    editedElsewhere,
+    onViewModeChange: handleViewModeChange,
+  } = useWorkspaceFileViewMode({
+    hasRevealTarget: revealTarget !== null,
+    markdownFile,
+    viewMode,
+    setViewMode,
+    markdownPreviewDisabled,
+    supportsWrite,
+    truncated,
+    editing,
+    editEnabled,
+    editSession,
+    editSurfaceId,
+    diskContent: validatedContent,
+    renderedContent,
+    isLoading: query.isLoading,
+  });
   // Preserve scroll (both axes - long lines scroll horizontally) across epic
   // switches and remount, once the file content has loaded.
   const { scrollContainerRef, onScroll } = useNativeDivScrollRestoration(
@@ -850,7 +873,7 @@ function WorkspaceFileTileLive(props: {
 
   useLayoutEffect(() => {
     findEnvironmentRef.current = {
-      viewMode: effectiveViewMode,
+      viewMode: findViewMode,
       content: findContent,
       isLoading: query.isLoading,
       displayError,
@@ -861,8 +884,8 @@ function WorkspaceFileTileLive(props: {
     publishFindEnvironment();
   }, [
     displayError,
-    effectiveViewMode,
     findContent,
+    findViewMode,
     publishFindEnvironment,
     query.isLoading,
     revealSourceMatch,
@@ -887,7 +910,8 @@ function WorkspaceFileTileLive(props: {
           markdownPreviewDisabled={markdownPreviewDisabled}
           viewMode={effectiveViewMode}
           editing={editing}
-          onViewModeChange={setViewMode}
+          splitEditAvailable={splitEditAvailable}
+          onViewModeChange={handleViewModeChange}
           wordWrap={wordWrap}
           onWordWrapChange={setWordWrap}
           svgToggle={props.svgToggle}
@@ -905,38 +929,49 @@ function WorkspaceFileTileLive(props: {
             />
           }
         />
-        <div
-          ref={scrollContainerRef}
-          onScroll={onScroll}
-          // Ctrl/Cmd+A selects the file body, not the whole window (#592).
-          data-selection-root=""
-          className={cn(
-            "relative min-h-0 flex-1 overflow-auto",
-            props.isActive && "selection:bg-primary/25",
-          )}
-        >
-          <WorkspaceFilePreviewContent
-            content={renderedContent}
-            displayError={displayError}
-            reportContext={reportContext}
+        {splitEditorContent !== null ? (
+          <WorkspaceMarkdownSplitBody
+            content={splitEditorContent}
             fileName={node.name}
-            isLoading={query.isLoading}
-            language={language}
-            viewMode={effectiveViewMode}
-            wordWrap={wordWrap}
-            revealLine={revealTarget?.line ?? null}
-            revealNonce={revealTarget?.nonce ?? null}
-            sourceFindTarget={sourceFindTarget}
             editing={editing}
-            editAdapter={editAdapter}
-            fileIdentity={{
-              findFilePath: node.filePath,
-              bundleFindFileId: node.id,
-            }}
-            onMarkdownPreviewRootChange={handleMarkdownPreviewRootChange}
-            onRevealConsumed={handleRevealConsumed}
+            editedElsewhere={editedElsewhere}
+            editSession={editSession}
+            onPreviewRootChange={handleMarkdownPreviewRootChange}
           />
-        </div>
+        ) : (
+          <div
+            ref={scrollContainerRef}
+            onScroll={onScroll}
+            // Ctrl/Cmd+A selects the file body, not the whole window (#592).
+            data-selection-root=""
+            className={cn(
+              "relative min-h-0 flex-1 overflow-auto",
+              props.isActive && "selection:bg-primary/25",
+            )}
+          >
+            <WorkspaceFilePreviewContent
+              content={renderedContent}
+              displayError={displayError}
+              reportContext={reportContext}
+              fileName={node.name}
+              isLoading={query.isLoading}
+              language={language}
+              viewMode={effectiveViewMode}
+              wordWrap={wordWrap}
+              revealLine={revealTarget?.line ?? null}
+              revealNonce={revealTarget?.nonce ?? null}
+              sourceFindTarget={sourceFindTarget}
+              editing={editing}
+              editAdapter={editAdapter}
+              fileIdentity={{
+                findFilePath: node.filePath,
+                bundleFindFileId: node.id,
+              }}
+              onMarkdownPreviewRootChange={handleMarkdownPreviewRootChange}
+              onRevealConsumed={handleRevealConsumed}
+            />
+          </div>
+        )}
       </div>
     </WorkspaceMarkdownLinkProvider>
   );
@@ -952,6 +987,7 @@ function WorkspaceFileToolbar(props: {
   readonly markdownPreviewDisabled: boolean;
   readonly viewMode: WorkspaceFileViewMode;
   readonly editing: boolean;
+  readonly splitEditAvailable: boolean;
   readonly onViewModeChange: (mode: WorkspaceFileViewMode) => void;
   readonly wordWrap: boolean;
   readonly onWordWrapChange: (value: boolean) => void;
@@ -982,9 +1018,12 @@ function WorkspaceFileToolbar(props: {
         </span>
       ) : null}
       {props.status}
-      {showContentControls && props.markdownFile && !props.editing ? (
+      {showContentControls &&
+      props.markdownFile &&
+      (!props.editing || props.viewMode === "edit") ? (
         <MarkdownViewModeToggle
           previewDisabled={props.markdownPreviewDisabled}
+          editAvailable={props.splitEditAvailable}
           mode={props.viewMode}
           onModeChange={props.onViewModeChange}
         />
@@ -1270,22 +1309,31 @@ function readFileReportContext(
 function MarkdownViewModeToggle(props: {
   readonly mode: WorkspaceFileViewMode;
   readonly previewDisabled: boolean;
+  readonly editAvailable: boolean;
   readonly onModeChange: (mode: WorkspaceFileViewMode) => void;
 }) {
+  const options = MARKDOWN_VIEW_MODE_OPTIONS.filter(
+    (option) => option.mode !== "edit" || props.editAvailable,
+  );
   return (
     <div
       className="flex shrink-0 items-center gap-1"
       role="toolbar"
       aria-label="Markdown view mode"
     >
-      {MARKDOWN_VIEW_MODE_OPTIONS.map((option) => {
+      {options.map((option) => {
         const active = props.mode === option.mode;
-        const disabled = option.mode === "preview" && props.previewDisabled;
+        // Only entering a view is gated by size; the view already open
+        // stays usable while its draft grows.
+        const disabled =
+          option.mode !== "source" && props.previewDisabled && !active;
         return (
           <TooltipWrapper
             key={option.mode}
             label={
-              disabled ? "Preview unavailable - file is too large" : undefined
+              disabled
+                ? `${option.label} unavailable - file is too large`
+                : undefined
             }
             side="top"
             sideOffset={undefined}
@@ -1351,18 +1399,154 @@ function MarkdownFilePreview(props: {
   );
 }
 
-function computeViewMode(
-  hasRevealTarget: boolean,
-  markdownFile: boolean,
-  viewMode: WorkspaceFileViewMode,
-  markdownPreviewDisabled: boolean,
-): WorkspaceFileViewMode {
+function computeViewMode(args: {
+  readonly hasRevealTarget: boolean;
+  readonly markdownFile: boolean;
+  readonly viewMode: WorkspaceFileViewMode;
+  readonly markdownPreviewDisabled: boolean;
+  readonly splitEditAvailable: boolean;
+}): WorkspaceFileViewMode {
   // A line target always wins: rendered markdown can't address a line.
-  if (hasRevealTarget) return "source";
-  if (markdownFile && viewMode === "preview" && !markdownPreviewDisabled) {
-    return "preview";
-  }
+  if (args.hasRevealTarget) return "source";
+  if (!args.markdownFile) return "source";
+  // The size cap only gates entering the split editor (its toggle is
+  // disabled); a draft that grows past it while editing keeps its editor.
+  if (args.viewMode === "edit" && args.splitEditAvailable) return "edit";
+  if (args.markdownPreviewDisabled) return "source";
+  if (args.viewMode === "preview") return "preview";
   return "source";
+}
+
+/**
+ * The view the tile shows, including the markdown split editor. Editing that
+ * started in the source view keeps the tile there; the split editor keeps its
+ * own mode while it edits. Leaving the split editor saves and hands the file
+ * back, so another view or tab can edit it.
+ */
+function useWorkspaceFileViewMode(args: {
+  readonly hasRevealTarget: boolean;
+  readonly markdownFile: boolean;
+  readonly viewMode: WorkspaceFileViewMode;
+  readonly setViewMode: (mode: WorkspaceFileViewMode) => void;
+  readonly markdownPreviewDisabled: boolean;
+  readonly supportsWrite: boolean;
+  readonly truncated: boolean;
+  readonly editing: boolean;
+  readonly editEnabled: boolean;
+  readonly editSession: FileEditSessionController;
+  readonly editSurfaceId: string;
+  readonly diskContent: string | null;
+  readonly renderedContent: string | null;
+  readonly isLoading: boolean;
+}) {
+  const canWrite = args.supportsWrite && !args.truncated;
+  const requested = computeViewMode({
+    hasRevealTarget: args.hasRevealTarget,
+    markdownFile: args.markdownFile,
+    viewMode: args.viewMode,
+    markdownPreviewDisabled: args.markdownPreviewDisabled,
+    splitEditAvailable: canWrite,
+  });
+  const effectiveViewMode: WorkspaceFileViewMode =
+    args.editing && requested !== "edit" ? "source" : requested;
+  const splitEditing = effectiveViewMode === "edit";
+  const { editedElsewhere } = useSplitEditorClaim({
+    editSession: args.editSession,
+    editSurfaceId: args.editSurfaceId,
+    claim: splitEditing && args.editEnabled && !args.editing,
+    diskContent: args.diskContent,
+  });
+  const onViewModeChange = (mode: WorkspaceFileViewMode): void => {
+    if (splitEditing && mode !== "edit") args.editSession.release();
+    args.setViewMode(mode);
+  };
+  return {
+    effectiveViewMode,
+    // Find in the split editor searches its rendered pane.
+    findViewMode: splitEditing ? "preview" : effectiveViewMode,
+    splitEditAvailable: canWrite,
+    splitEditorContent:
+      splitEditing && !args.isLoading ? args.renderedContent : null,
+    editedElsewhere,
+    onViewModeChange,
+  } as const;
+}
+
+/**
+ * The split editor has no line to click, so it claims the file as soon as it
+ * is shown, and again once another surface lets go of it.
+ */
+function useSplitEditorClaim(args: {
+  readonly editSession: FileEditSessionController;
+  readonly editSurfaceId: string;
+  readonly claim: boolean;
+  readonly diskContent: string | null;
+}): { readonly editedElsewhere: boolean } {
+  const ownerSurfaceId = args.editSession.state?.ownerSurfaceId ?? null;
+  const editedElsewhere =
+    ownerSurfaceId !== null && ownerSurfaceId !== args.editSurfaceId;
+  const activate = args.editSession.activate;
+  const shouldClaim = args.claim && !editedElsewhere;
+  const diskContent = args.diskContent ?? "";
+  useEffect(() => {
+    if (!shouldClaim) return;
+    let current = true;
+    void activate(
+      {
+        caret: SPLIT_EDITOR_ORIGIN_CARET,
+        isCurrent: () => current,
+        editorReady: Promise.resolve(),
+      },
+      diskContent,
+    ).catch(() => {
+      if (!current) return;
+      reportableErrorToast(
+        "Couldn’t start editing this file.",
+        undefined,
+        createReportIssueContext({
+          title: "Could not start editing this file",
+          message: null,
+          code: null,
+          source: "Folder file edit",
+        }),
+      );
+    });
+    return () => {
+      current = false;
+    };
+  }, [activate, diskContent, shouldClaim]);
+  return { editedElsewhere };
+}
+
+function WorkspaceMarkdownSplitBody(props: {
+  readonly content: string;
+  readonly fileName: string;
+  readonly editing: boolean;
+  readonly editedElsewhere: boolean;
+  readonly editSession: FileEditSessionController;
+  readonly onPreviewRootChange: (root: HTMLElement | null) => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1">
+      <MarkdownSplitEditor
+        value={props.content}
+        readOnly={!props.editing}
+        fileName={props.fileName}
+        notice={
+          props.editedElsewhere ? (
+            <p className="shrink-0 border-b border-warning/30 bg-warning/10 px-3 py-1.5 text-ui-xs text-warning-foreground">
+              This file is being edited in another view. You can edit here once
+              that view stops editing it.
+            </p>
+          ) : null
+        }
+        onChange={props.editSession.setDraft}
+        onBlur={props.editSession.flush}
+        onSave={props.editSession.flush}
+        onPreviewRootChange={props.onPreviewRootChange}
+      />
+    </div>
+  );
 }
 
 function normalizeWorkspaceFileContent(content: string): string {
