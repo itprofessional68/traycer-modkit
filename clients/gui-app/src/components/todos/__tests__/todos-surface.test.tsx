@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   waitForElementToBeRemoved,
   within,
 } from "@testing-library/react";
@@ -13,6 +14,7 @@ import type {
   ListTaskLight,
 } from "@traycer/protocol/host/epic/unary-schemas";
 import { WithTestQueryClient } from "@/__tests__/with-test-query-client";
+import { TabSurfaceActivityContext } from "@/components/layout/tab-surface-activity-context";
 import { TodosSurface } from "@/components/todos/todos-surface";
 import { taskLight } from "@/lib/view-replica/__tests__/replica-fixtures";
 import { __resetTabNavigationControllerForTesting } from "@/lib/tab-navigation";
@@ -181,6 +183,75 @@ describe("TodosSurface", () => {
         status: 2,
       },
     );
+  });
+
+  it("sets Done tickets to To do and In progress tickets to Done", async () => {
+    renderSurface();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+
+    const done = await screen.findByRole("checkbox", { name: "Ship it" });
+    fireEvent.click(done);
+    await waitFor(() => {
+      expect(fixture.client.request).toHaveBeenCalledWith(
+        "epic.updateArtifactStatus",
+        {
+          epicId: "task-a",
+          artifactId: "t-ship",
+          artifactType: "ticket",
+          status: 0,
+        },
+      );
+    });
+
+    const inProgress = screen.getByRole("checkbox", { name: "Wire the route" });
+    fireEvent.click(inProgress);
+    await waitFor(() => {
+      expect(fixture.client.request).toHaveBeenCalledWith(
+        "epic.updateArtifactStatus",
+        {
+          epicId: "task-a",
+          artifactId: "t-route",
+          artifactType: "ticket",
+          status: 2,
+        },
+      );
+    });
+  });
+
+  it("reads tickets when visible and does not read while hidden", async () => {
+    fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
+    const rendered = render(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: true, focused: true }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+      { wrapper: WithTestQueryClient },
+    );
+
+    await waitFor(() => {
+      expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: false, focused: false }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(1);
+
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: true, focused: true }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    await waitFor(() => {
+      expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("shows only the Tasks linked to the picked repo", async () => {

@@ -56,10 +56,28 @@ const TICKETS: EpicMentionTicketsResponse = {
       status: 0,
       updatedAt: 1,
     },
+    {
+      kind: "epic-artifact",
+      id: "row-2",
+      token: "token-2",
+      epicId: "task-a",
+      epicTitle: "Task A",
+      artifactId: "ticket-2",
+      artifactType: "ticket",
+      label: "Wire the route",
+      description: "",
+      status: 0,
+      updatedAt: 1,
+    },
   ],
 };
 
 const DONE = { epicId: "task-a", artifactId: "ticket-1", status: 2 } as const;
+const STARTED = {
+  epicId: "task-a",
+  artifactId: "ticket-2",
+  status: 1,
+} as const;
 
 function renderWrite() {
   const queryClient = new QueryClient();
@@ -75,10 +93,13 @@ function renderWrite() {
       ),
     },
   );
-  const cachedStatus = () =>
-    queryClient.getQueryData<EpicMentionTicketsResponse>(TICKETS_KEY)
-      ?.entries[0].status;
-  return { ...view, cachedStatus };
+  const cachedStatusOf = (artifactId: string) =>
+    queryClient
+      .getQueryData<EpicMentionTicketsResponse>(TICKETS_KEY)
+      ?.entries.find((entry) => entry.artifactId === artifactId)?.status;
+  const cachedStatus = () => cachedStatusOf("ticket-1");
+  const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+  return { ...view, cachedStatus, cachedStatusOf, invalidate };
 }
 
 /**
@@ -171,5 +192,99 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     const [, fallback] = await refused;
     expect(fallback).toBe("Couldn't update the ticket.");
     expect(cachedStatus()).toBe(0);
+  });
+
+  it("puts the ticket back and says so when the open Task's queue refuses the write", async () => {
+    hoisted.peek.mockReturnValue(hoisted.openTask);
+    hoisted.queue.enqueueWriteCommand.mockResolvedValue(null);
+    const { result, cachedStatus } = renderWrite();
+    const refused = nextCallOf(hoisted.toastFromHostError);
+
+    result.current.mutate(DONE);
+
+    const [error, fallback] = await refused;
+    expect(error).toMatchObject({
+      message: "The write was refused by the current epic projection",
+    });
+    expect(fallback).toBe("Couldn't update the ticket.");
+    expect(cachedStatus()).toBe(0);
+    expect(hoisted.queue.waitForWriteCommand).not.toHaveBeenCalled();
+    expect(hoisted.request).not.toHaveBeenCalled();
+  });
+
+  it("puts the ticket back when the open Task's host rejects the write", async () => {
+    hoisted.peek.mockReturnValue(hoisted.openTask);
+    hoisted.queue.enqueueWriteCommand.mockResolvedValue("command-1");
+    hoisted.queue.waitForWriteCommand.mockResolvedValue({
+      state: "rejected",
+      resolution: { kind: "rejected", code: "FORBIDDEN", reason: "view-only" },
+    });
+    const { result, cachedStatus } = renderWrite();
+    const refused = nextCallOf(hoisted.toastFromHostError);
+
+    result.current.mutate(DONE);
+
+    const [error] = await refused;
+    expect(error).toMatchObject({ message: "view-only" });
+    expect(cachedStatus()).toBe(0);
+  });
+
+  describe("with two writes in flight", () => {
+    function startBoth() {
+      hoisted.peek.mockReturnValue(null);
+      const first = deferred();
+      const second = deferred();
+      const firstRequested = nextRequest(first.promise);
+      const secondRequested = nextRequest(second.promise);
+      const view = renderWrite();
+      const writeFirst = view.result.current.mutateAsync(DONE);
+      const writeSecond = view.result.current.mutateAsync(STARTED);
+      return {
+        ...view,
+        first,
+        second,
+        writeFirst,
+        writeSecond,
+        requested: Promise.all([firstRequested, secondRequested]),
+      };
+    }
+
+    it("keeps the other ticket's pending status when one fails, and reads again only after the last settles", async () => {
+      const view = startBoth();
+      await view.requested;
+      expect(view.cachedStatusOf("ticket-1")).toBe(2);
+      expect(view.cachedStatusOf("ticket-2")).toBe(1);
+
+      view.first.reject(new Error("view-only"));
+      await expect(view.writeFirst).rejects.toThrow("view-only");
+
+      expect(view.cachedStatusOf("ticket-1")).toBe(0);
+      expect(view.cachedStatusOf("ticket-2")).toBe(1);
+      expect(view.invalidate).not.toHaveBeenCalled();
+
+      view.second.resolve({ updated: true });
+      await view.writeSecond;
+
+      expect(view.cachedStatusOf("ticket-2")).toBe(1);
+      expect(view.invalidate).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads again when the failing write is the last to settle", async () => {
+      const view = startBoth();
+      await view.requested;
+
+      view.second.resolve({ updated: true });
+      await view.writeSecond;
+
+      expect(view.invalidate).not.toHaveBeenCalled();
+      expect(view.cachedStatusOf("ticket-1")).toBe(2);
+
+      view.first.reject(new Error("view-only"));
+      await expect(view.writeFirst).rejects.toThrow("view-only");
+
+      expect(view.cachedStatusOf("ticket-1")).toBe(0);
+      expect(view.cachedStatusOf("ticket-2")).toBe(1);
+      expect(view.invalidate).toHaveBeenCalledTimes(1);
+    });
   });
 });
