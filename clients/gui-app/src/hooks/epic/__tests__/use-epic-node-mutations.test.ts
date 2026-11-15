@@ -23,8 +23,6 @@ const clients = vi.hoisted(() => ({
 
 const queryClientFixture = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
-  // No To-dos write in flight, so a status write refreshes ticket reads.
-  isMutating: vi.fn((_filters: unknown) => 0),
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => ({
@@ -101,7 +99,7 @@ import {
 import { toastFromOwnerHostBatchWriteFailures } from "@/lib/owner-host-write-error-toast";
 import type { RpcErrorCode } from "@traycer/protocol/framework/index";
 import { Analytics, AnalyticsEvent } from "@/lib/analytics";
-import { epicMutationKeys, hostQueryKeys } from "@/lib/query-keys";
+import { hostQueryKeys } from "@/lib/query-keys";
 
 function makeError(code: RpcErrorCode): HostRpcError {
   return new HostRpcError({
@@ -295,7 +293,7 @@ describe("useEpicUpdateArtifactStatus ticket reads", () => {
     status: 2,
   } as const;
 
-  it("reads every host's tickets again after a write while no To-dos write is in flight", async () => {
+  it("invalidates every host's ticket reads after a successful write", async () => {
     commitCommand();
     const { result } = renderHook(() =>
       useEpicUpdateArtifactStatus("artifact-1"),
@@ -303,14 +301,19 @@ describe("useEpicUpdateArtifactStatus ticket reads", () => {
 
     await result.current.mutateAsync(status);
 
-    expect(queryClientFixture.isMutating).toHaveBeenCalledWith({
-      mutationKey: epicMutationKeys.updateArtifactStatus(),
-    });
     expect(queryClientFixture.invalidateQueries).toHaveBeenCalledTimes(1);
     const { predicate } = queryClientFixture.invalidateQueries.mock
       .calls[0][0] as {
       predicate: (query: { queryKey: unknown }) => boolean;
     };
+    expect(
+      predicate({
+        queryKey: hostQueryKeys.method("host-1", "epic.mentionTickets", {
+          query: "",
+          limit: 100,
+        }),
+      }),
+    ).toBe(true);
     expect(
       predicate({
         queryKey: hostQueryKeys.method("host-2", "epic.mentionTickets", {
@@ -324,18 +327,6 @@ describe("useEpicUpdateArtifactStatus ticket reads", () => {
         queryKey: hostQueryKeys.method("host-2", "epic.listArtifacts", {}),
       }),
     ).toBe(false);
-  });
-
-  it("leaves the reads to the last To-dos write while one is in flight", async () => {
-    commitCommand();
-    queryClientFixture.isMutating.mockReturnValueOnce(1);
-    const { result } = renderHook(() =>
-      useEpicUpdateArtifactStatus("artifact-1"),
-    );
-
-    await result.current.mutateAsync(status);
-
-    expect(queryClientFixture.invalidateQueries).not.toHaveBeenCalled();
   });
 });
 

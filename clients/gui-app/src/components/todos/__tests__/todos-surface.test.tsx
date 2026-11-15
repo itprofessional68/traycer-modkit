@@ -1,18 +1,20 @@
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
-  waitFor,
   waitForElementToBeRemoved,
   within,
 } from "@testing-library/react";
+import { focusManager } from "@tanstack/react-query";
 import type { NavigateOptions } from "@tanstack/react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   EpicMentionTicketSuggestion,
   ListTaskLight,
 } from "@traycer/protocol/host/epic/unary-schemas";
+import { nextCallOf } from "@/__tests__/next-call";
 import { WithTestQueryClient } from "@/__tests__/with-test-query-client";
 import { TabSurfaceActivityContext } from "@/components/layout/tab-surface-activity-context";
 import { TodosSurface } from "@/components/todos/todos-surface";
@@ -108,8 +110,27 @@ function taskA(): ListTaskLight {
 }
 
 function renderSurface() {
-  fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
-  return render(<TodosSurface />, { wrapper: WithTestQueryClient });
+  return renderSurfaceWithActivity({ visible: true, focused: true });
+}
+
+function renderSurfaceWithActivity(activity: {
+  readonly visible: boolean;
+  readonly focused: boolean;
+}) {
+  return render(
+    <TabSurfaceActivityContext.Provider value={activity}>
+      <TodosSurface />
+    </TabSurfaceActivityContext.Provider>,
+    { wrapper: WithTestQueryClient },
+  );
+}
+
+function deferred<T>() {
+  let resolve = (_value: T): void => undefined;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
 }
 
 function section(name: string): HTMLElement {
@@ -121,10 +142,14 @@ describe("TodosSurface", () => {
     resetTabsStoreForTest();
     __resetTabNavigationControllerForTesting();
     fixture.tasks.splice(0, fixture.tasks.length, taskA());
+    fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
+    focusManager.setFocused(undefined);
   });
 
   afterEach(() => {
     cleanup();
+    focusManager.setFocused(undefined);
+    vi.useRealTimers();
     __resetTabNavigationControllerForTesting();
     fixture.client.requestWithSignal.mockReset();
     fixture.client.request.mockReset();
@@ -190,47 +215,42 @@ describe("TodosSurface", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
 
     const done = await screen.findByRole("checkbox", { name: "Ship it" });
+    const doneWrite = nextCallOf(fixture.client.request);
     fireEvent.click(done);
-    await waitFor(() => {
-      expect(fixture.client.request).toHaveBeenCalledWith(
-        "epic.updateArtifactStatus",
-        {
-          epicId: "task-a",
-          artifactId: "t-ship",
-          artifactType: "ticket",
-          status: 0,
-        },
-      );
-    });
+    expect(await doneWrite).toEqual([
+      "epic.updateArtifactStatus",
+      {
+        epicId: "task-a",
+        artifactId: "t-ship",
+        artifactType: "ticket",
+        status: 0,
+      },
+    ]);
 
     const inProgress = screen.getByRole("checkbox", { name: "Wire the route" });
+    const inProgressWrite = nextCallOf(fixture.client.request);
     fireEvent.click(inProgress);
-    await waitFor(() => {
-      expect(fixture.client.request).toHaveBeenCalledWith(
-        "epic.updateArtifactStatus",
-        {
-          epicId: "task-a",
-          artifactId: "t-route",
-          artifactType: "ticket",
-          status: 2,
-        },
-      );
-    });
+    expect(await inProgressWrite).toEqual([
+      "epic.updateArtifactStatus",
+      {
+        epicId: "task-a",
+        artifactId: "t-route",
+        artifactType: "ticket",
+        status: 2,
+      },
+    ]);
   });
 
   it("reads tickets when visible and does not read while hidden", async () => {
-    fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
-    const rendered = render(
-      <TabSurfaceActivityContext.Provider
-        value={{ visible: true, focused: true }}
-      >
-        <TodosSurface />
-      </TabSurfaceActivityContext.Provider>,
-      { wrapper: WithTestQueryClient },
-    );
-
-    await waitFor(() => {
-      expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(1);
+    const readStarted = vi.fn();
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      readStarted();
+      return Promise.resolve({ entries: TICKETS });
+    });
+    const initialRead = nextCallOf(readStarted);
+    const rendered = renderSurface();
+    await act(async () => {
+      await initialRead;
     });
 
     rendered.rerender(
@@ -240,8 +260,14 @@ describe("TodosSurface", () => {
         <TodosSurface />
       </TabSurfaceActivityContext.Provider>,
     );
+    vi.useFakeTimers();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
     expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(1);
 
+    vi.useRealTimers();
+    const visibleRead = nextCallOf(readStarted);
     rendered.rerender(
       <TabSurfaceActivityContext.Provider
         value={{ visible: true, focused: true }}
@@ -249,9 +275,98 @@ describe("TodosSurface", () => {
         <TodosSurface />
       </TabSurfaceActivityContext.Provider>,
     );
-    await waitFor(() => {
-      expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      await visibleRead;
     });
+    expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a pending Done ticket stable across visibility and focus reads", async () => {
+    let writeSettled = false;
+    const readStarted = vi.fn();
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      readStarted();
+      const entries = writeSettled
+        ? TICKETS.map((entry) =>
+            entry.artifactId === "t-store" ? { ...entry, status: 2 } : entry,
+          )
+        : TICKETS;
+      return Promise.resolve({ entries });
+    });
+    const initialRead = nextCallOf(readStarted);
+    const rendered = renderSurface();
+    await act(async () => {
+      await initialRead;
+    });
+
+    const box = await screen.findByRole("checkbox", {
+      name: "Write the store",
+    });
+    const answer = deferred<unknown>();
+    const writeStarted = vi.fn();
+    fixture.client.request.mockImplementation(() => {
+      writeStarted();
+      return answer.promise;
+    });
+    const pendingWrite = nextCallOf(writeStarted);
+    fireEvent.click(box);
+    await pendingWrite;
+    await waitForElementToBeRemoved(box);
+
+    const visibilityRead = nextCallOf(readStarted);
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: false, focused: false }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: true, focused: true }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    await act(async () => {
+      await visibilityRead;
+    });
+    expect(
+      screen.queryByRole("checkbox", { name: "Write the store" }),
+    ).toBeNull();
+
+    const focusRead = nextCallOf(readStarted);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await act(async () => {
+      await focusRead;
+    });
+    expect(
+      screen.queryByRole("checkbox", { name: "Write the store" }),
+    ).toBeNull();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+    const pendingDone = screen.getByRole("checkbox", {
+      name: "Write the store",
+    });
+    expect(pendingDone.getAttribute("aria-checked")).toBe("true");
+    expect(pendingDone.matches(":disabled")).toBe(true);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+
+    writeSettled = true;
+    const settledRead = nextCallOf(readStarted);
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await settledRead;
+    });
+    const settledDone = screen.getByRole("checkbox", {
+      name: "Write the store",
+    });
+    expect(settledDone.getAttribute("aria-checked")).toBe("true");
+    expect(settledDone.matches(":disabled")).toBe(false);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
   });
 
   it("shows only the Tasks linked to the picked repo", async () => {

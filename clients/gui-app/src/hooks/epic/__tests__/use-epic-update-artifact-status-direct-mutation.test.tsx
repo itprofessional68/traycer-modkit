@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,11 @@ import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/una
 import { nextCallOf } from "@/__tests__/next-call";
 import type { HostRpcRegistry } from "@/lib/host";
 import { hostQueryKeys } from "@/lib/query-keys";
-import { useEpicUpdateArtifactStatusDirectForClient } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
+import {
+  useEpicUpdateArtifactStatusDirectForClient,
+  usePendingTicketStatuses,
+} from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
+import { ticketKey } from "@/lib/todos/group-todos";
 
 const HOST = "host-1";
 
@@ -15,6 +19,10 @@ const TICKETS_KEY = hostQueryKeys.method<
   HostRpcRegistry,
   "epic.mentionTickets"
 >(HOST, "epic.mentionTickets", { query: "", limit: 100 });
+const OTHER_TICKETS_KEY = hostQueryKeys.method<
+  HostRpcRegistry,
+  "epic.mentionTickets"
+>("host-2", "epic.mentionTickets", { query: "", limit: 100 });
 
 const hoisted = await vi.hoisted(async () => {
   const { createStore } = await import("zustand/vanilla");
@@ -82,9 +90,18 @@ const STARTED = {
 function renderWrite() {
   const queryClient = new QueryClient();
   queryClient.setQueryData(TICKETS_KEY, TICKETS);
-  const client = { getActiveHostId: () => HOST, request: hoisted.request };
+  queryClient.setQueryData(OTHER_TICKETS_KEY, TICKETS);
+  let currentHost = HOST;
+  const client = {
+    getActiveHostId: () => currentHost,
+    request: hoisted.request,
+  };
   const view = renderHook(
-    () => useEpicUpdateArtifactStatusDirectForClient(client),
+    () => {
+      const mutation = useEpicUpdateArtifactStatusDirectForClient(client);
+      const pending = usePendingTicketStatuses();
+      return { ...mutation, pending };
+    },
     {
       wrapper: ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={queryClient}>
@@ -93,13 +110,23 @@ function renderWrite() {
       ),
     },
   );
-  const cachedStatusOf = (artifactId: string) =>
+  const cachedStatusOf = (artifactId: string, hostId: string) =>
     queryClient
-      .getQueryData<EpicMentionTicketsResponse>(TICKETS_KEY)
+      .getQueryData<EpicMentionTicketsResponse>(
+        hostId === HOST ? TICKETS_KEY : OTHER_TICKETS_KEY,
+      )
       ?.entries.find((entry) => entry.artifactId === artifactId)?.status;
-  const cachedStatus = () => cachedStatusOf("ticket-1");
+  const cachedStatus = () => cachedStatusOf("ticket-1", HOST);
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
-  return { ...view, cachedStatus, cachedStatusOf, invalidate };
+  return {
+    ...view,
+    cachedStatus,
+    cachedStatusOf,
+    invalidate,
+    setCurrentHost: (hostId: string) => {
+      currentHost = hostId;
+    },
+  };
 }
 
 /**
@@ -136,19 +163,32 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     hoisted.toastFromHostError.mockReset();
   });
 
-  it("checks the ticket off at once and writes it to the host when its Task is not open", async () => {
+  it("keeps the read unchanged while pending, then patches and invalidates every host on success", async () => {
     hoisted.peek.mockReturnValue(null);
     const answer = deferred();
     const requested = nextRequest(answer.promise);
-    const { result, cachedStatus } = renderWrite();
+    const view = renderWrite();
 
-    const written = result.current.mutateAsync(DONE);
-    const [method, params] = await requested;
-    expect(cachedStatus()).toBe(2);
-    answer.resolve({ updated: true });
-    await written;
+    let written = Promise.resolve();
+    let requestArgs: [string, unknown] | undefined;
+    await act(async () => {
+      written = view.result.current.mutateAsync(DONE);
+      requestArgs = await requested;
+    });
+    view.rerender();
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(
+      view.result.current.pending.get(ticketKey("task-a", "ticket-1")),
+    ).toBe(2);
 
-    expect([method, params]).toEqual([
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await written;
+    });
+    view.rerender();
+
+    expect(requestArgs).toEqual([
       "epic.updateArtifactStatus",
       {
         epicId: "task-a",
@@ -157,6 +197,65 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
         status: 2,
       },
     ]);
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(
+      view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
+    ).toBe(false);
+    expect(view.invalidate).toHaveBeenCalledTimes(1);
+    const { predicate } = view.invalidate.mock.calls[0][0] as {
+      predicate: (query: { queryKey: unknown }) => boolean;
+    };
+    for (const hostId of [HOST, "host-2"]) {
+      expect(
+        predicate({
+          queryKey: hostQueryKeys.method(hostId, "epic.mentionTickets", {
+            query: "",
+            limit: 100,
+          }),
+        }),
+      ).toBe(true);
+    }
+    expect(
+      predicate({
+        queryKey: hostQueryKeys.method(HOST, "epic.listArtifacts", {}),
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the read unchanged and shows a toast when the host refuses", async () => {
+    hoisted.peek.mockReturnValue(null);
+    const answer = deferred();
+    const requested = nextRequest(answer.promise);
+    const view = renderWrite();
+    const { result, cachedStatus, invalidate } = view;
+    const refused = nextCallOf(hoisted.toastFromHostError);
+
+    let written = Promise.resolve();
+    await act(async () => {
+      written = result.current.mutateAsync(DONE);
+      await requested;
+    });
+    view.rerender();
+    expect(cachedStatus()).toBe(0);
+    expect(result.current.pending.get(ticketKey("task-a", "ticket-1"))).toBe(2);
+
+    await act(async () => {
+      answer.reject(new Error("view-only"));
+      await expect(written).rejects.toThrow("view-only");
+      await refused;
+    });
+    view.rerender();
+
+    expect(cachedStatus()).toBe(0);
+    expect(result.current.pending.has(ticketKey("task-a", "ticket-1"))).toBe(
+      false,
+    );
+    expect(hoisted.toastFromHostError).toHaveBeenCalledWith(
+      expect.anything(),
+      "Couldn't update the ticket.",
+    );
+    expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
   it("writes through the open Task's own queue, not to the host", async () => {
@@ -177,24 +276,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     expect(hoisted.request).not.toHaveBeenCalled();
   });
 
-  it("puts the ticket back and says so when the host refuses, after the row is gone", async () => {
-    hoisted.peek.mockReturnValue(null);
-    const answer = deferred();
-    const requested = nextRequest(answer.promise);
-    const { result, unmount, cachedStatus } = renderWrite();
-    const refused = nextCallOf(hoisted.toastFromHostError);
-
-    result.current.mutate(DONE);
-    await requested;
-    unmount();
-    answer.reject(new Error("view-only"));
-
-    const [, fallback] = await refused;
-    expect(fallback).toBe("Couldn't update the ticket.");
-    expect(cachedStatus()).toBe(0);
-  });
-
-  it("puts the ticket back and says so when the open Task's queue refuses the write", async () => {
+  it("keeps the ticket read unchanged and says so when the open Task's queue refuses the write", async () => {
     hoisted.peek.mockReturnValue(hoisted.openTask);
     hoisted.queue.enqueueWriteCommand.mockResolvedValue(null);
     const { result, cachedStatus } = renderWrite();
@@ -212,7 +294,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     expect(hoisted.request).not.toHaveBeenCalled();
   });
 
-  it("puts the ticket back when the open Task's host rejects the write", async () => {
+  it("keeps the ticket read unchanged when the open Task's host rejects the write", async () => {
     hoisted.peek.mockReturnValue(hoisted.openTask);
     hoisted.queue.enqueueWriteCommand.mockResolvedValue("command-1");
     hoisted.queue.waitForWriteCommand.mockResolvedValue({
@@ -249,42 +331,72 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       };
     }
 
-    it("keeps the other ticket's pending status when one fails, and reads again only after the last settles", async () => {
+    it("reports both pending statuses without editing reads, then settles each independently", async () => {
       const view = startBoth();
       await view.requested;
-      expect(view.cachedStatusOf("ticket-1")).toBe(2);
-      expect(view.cachedStatusOf("ticket-2")).toBe(1);
+      view.rerender();
+      expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+      expect(view.cachedStatusOf("ticket-2", HOST)).toBe(0);
+      expect(
+        view.result.current.pending.get(ticketKey("task-a", "ticket-1")),
+      ).toBe(2);
+      expect(
+        view.result.current.pending.get(ticketKey("task-a", "ticket-2")),
+      ).toBe(1);
 
       view.first.reject(new Error("view-only"));
       await expect(view.writeFirst).rejects.toThrow("view-only");
+      view.rerender();
 
-      expect(view.cachedStatusOf("ticket-1")).toBe(0);
-      expect(view.cachedStatusOf("ticket-2")).toBe(1);
-      expect(view.invalidate).not.toHaveBeenCalled();
+      expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+      expect(view.cachedStatusOf("ticket-2", HOST)).toBe(0);
+      expect(
+        view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
+      ).toBe(false);
+      expect(
+        view.result.current.pending.get(ticketKey("task-a", "ticket-2")),
+      ).toBe(1);
+      expect(view.invalidate).toHaveBeenCalledTimes(1);
 
       view.second.resolve({ updated: true });
       await view.writeSecond;
+      view.rerender();
 
-      expect(view.cachedStatusOf("ticket-2")).toBe(1);
-      expect(view.invalidate).toHaveBeenCalledTimes(1);
+      expect(view.cachedStatusOf("ticket-2", HOST)).toBe(1);
+      expect(view.invalidate).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("invalidates the new host's tickets when the app-wide host changes during a write", async () => {
+    hoisted.peek.mockReturnValue(null);
+    const answer = deferred();
+    const requested = nextRequest(answer.promise);
+    const view = renderWrite();
+    let written = Promise.resolve();
+
+    await act(async () => {
+      written = view.result.current.mutateAsync(DONE);
+      await requested;
+    });
+    view.setCurrentHost("host-2");
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await written;
     });
 
-    it("reads again when the failing write is the last to settle", async () => {
-      const view = startBoth();
-      await view.requested;
-
-      view.second.resolve({ updated: true });
-      await view.writeSecond;
-
-      expect(view.invalidate).not.toHaveBeenCalled();
-      expect(view.cachedStatusOf("ticket-1")).toBe(2);
-
-      view.first.reject(new Error("view-only"));
-      await expect(view.writeFirst).rejects.toThrow("view-only");
-
-      expect(view.cachedStatusOf("ticket-1")).toBe(0);
-      expect(view.cachedStatusOf("ticket-2")).toBe(1);
-      expect(view.invalidate).toHaveBeenCalledTimes(1);
-    });
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(view.invalidate).toHaveBeenCalledTimes(1);
+    const { predicate } = view.invalidate.mock.calls[0][0] as {
+      predicate: (query: { queryKey: unknown }) => boolean;
+    };
+    expect(
+      predicate({
+        queryKey: hostQueryKeys.method("host-2", "epic.mentionTickets", {
+          query: "",
+          limit: 100,
+        }),
+      }),
+    ).toBe(true);
   });
 });
