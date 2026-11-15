@@ -7,11 +7,17 @@ import {
   waitForElementToBeRemoved,
   within,
 } from "@testing-library/react";
-import { focusManager } from "@tanstack/react-query";
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import type { NavigateOptions } from "@tanstack/react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   EpicMentionTicketSuggestion,
+  EpicMentionTicketsResponse,
   ListTaskLight,
 } from "@traycer/protocol/host/epic/unary-schemas";
 import { nextCallOf } from "@/__tests__/next-call";
@@ -19,12 +25,15 @@ import { WithTestQueryClient } from "@/__tests__/with-test-query-client";
 import { TabSurfaceActivityContext } from "@/components/layout/tab-surface-activity-context";
 import { TodosSurface } from "@/components/todos/todos-surface";
 import { taskLight } from "@/lib/view-replica/__tests__/replica-fixtures";
+import type { HostRpcRegistry } from "@/lib/host";
+import { hostQueryKeys } from "@/lib/query-keys";
 import { __resetTabNavigationControllerForTesting } from "@/lib/tab-navigation";
 import { resetTabsStoreForTest } from "@/stores/tabs/test-support/tabs-store-fixtures";
 
 const fixture = vi.hoisted(() => {
+  let activeHostId = "host-1";
   const client = {
-    getActiveHostId: () => "host-1",
+    getActiveHostId: () => activeHostId,
     getRequestContext: () => ({}),
     getRequestContextUserId: () => "user-a",
     onChange: () => () => undefined,
@@ -35,6 +44,9 @@ const fixture = vi.hoisted(() => {
   };
   return {
     client,
+    setActiveHostId: (hostId: string) => {
+      activeHostId = hostId;
+    },
     tasks: new Array<unknown>(),
     navigations: new Array<NavigateOptions>(),
   };
@@ -87,6 +99,11 @@ const TICKETS = [
   ticket("task-b", "t-docs", "Write the docs", null),
 ];
 
+const HOST_B_TICKETS_KEY = hostQueryKeys.method<
+  HostRpcRegistry,
+  "epic.mentionTickets"
+>("host-2", "epic.mentionTickets", { query: "", limit: 100 });
+
 /** Task A is linked to acme/web; Task B is not on the Task list's page. */
 function taskA(): ListTaskLight {
   const base = taskLight("task-a", null);
@@ -125,6 +142,24 @@ function renderSurfaceWithActivity(activity: {
   );
 }
 
+function renderSurfaceWithQueryClient(
+  activity: { readonly visible: boolean; readonly focused: boolean },
+  queryClient: QueryClient,
+) {
+  return render(
+    <TabSurfaceActivityContext.Provider value={activity}>
+      <TodosSurface />
+    </TabSurfaceActivityContext.Provider>,
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      ),
+    },
+  );
+}
+
 function deferred<T>() {
   let resolve = (_value: T): void => undefined;
   const promise = new Promise<T>((resolvePromise) => {
@@ -142,6 +177,7 @@ describe("TodosSurface", () => {
     resetTabsStoreForTest();
     __resetTabNavigationControllerForTesting();
     fixture.tasks.splice(0, fixture.tasks.length, taskA());
+    fixture.setActiveHostId("host-1");
     fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
     focusManager.setFocused(undefined);
   });
@@ -367,6 +403,97 @@ describe("TodosSurface", () => {
     expect(settledDone.getAttribute("aria-checked")).toBe("true");
     expect(settledDone.matches(":disabled")).toBe(false);
     expect(fixture.client.request).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a Done ticket out of Open when the host switches during its write", async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    queryClient.setQueryData<EpicMentionTicketsResponse>(HOST_B_TICKETS_KEY, {
+      entries: TICKETS,
+    });
+    const oldHostBRead = deferred<EpicMentionTicketsResponse>();
+    const newHostBRead = deferred<EpicMentionTicketsResponse>();
+    const hostBReadStarted = vi.fn();
+    const hostAReadStarted = vi.fn();
+    let hostBReadCount = 0;
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      if (fixture.client.getActiveHostId() === "host-2") {
+        hostBReadStarted();
+        hostBReadCount += 1;
+        return hostBReadCount === 1
+          ? oldHostBRead.promise
+          : newHostBRead.promise;
+      }
+      hostAReadStarted();
+      return Promise.resolve({ entries: TICKETS });
+    });
+    const hostARead = nextCallOf(hostAReadStarted);
+    const rendered = renderSurfaceWithQueryClient(
+      { visible: true, focused: true },
+      queryClient,
+    );
+    await act(async () => {
+      await hostARead;
+    });
+
+    const box = await screen.findByRole("checkbox", {
+      name: "Write the store",
+    });
+    const writeAnswer = deferred<unknown>();
+    const writeStarted = vi.fn();
+    fixture.client.request.mockImplementation(() => {
+      writeStarted();
+      return writeAnswer.promise;
+    });
+    const writeCall = nextCallOf(writeStarted);
+    fireEvent.click(box);
+    await writeCall;
+    await waitForElementToBeRemoved(box);
+
+    fixture.setActiveHostId("host-2");
+    const oldReadCall = nextCallOf(hostBReadStarted);
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: true, focused: false }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    await act(async () => {
+      await oldReadCall;
+    });
+
+    const refetchCall = nextCallOf(hostBReadStarted);
+    await act(async () => {
+      writeAnswer.resolve({ updated: true });
+      await refetchCall;
+    });
+    await act(async () => {
+      oldHostBRead.resolve({ entries: TICKETS });
+      await oldHostBRead.promise;
+    });
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+    const checked = screen.getByRole("checkbox", { name: "Write the store" });
+    expect(checked.getAttribute("aria-checked")).toBe("true");
+    expect(checked.matches(":disabled")).toBe(false);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+    expect(
+      queryClient
+        .getQueryData<EpicMentionTicketsResponse>(HOST_B_TICKETS_KEY)
+        ?.entries.find((entry) => entry.artifactId === "t-store")?.status,
+    ).toBe(2);
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Open" }));
+    expect(
+      screen.queryByRole("checkbox", { name: "Write the store" }),
+    ).toBeNull();
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+
+    rendered.unmount();
+    newHostBRead.resolve({ entries: TICKETS });
+    queryClient.clear();
   });
 
   it("shows only the Tasks linked to the picked repo", async () => {

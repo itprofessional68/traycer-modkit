@@ -91,11 +91,7 @@ function renderWrite() {
   const queryClient = new QueryClient();
   queryClient.setQueryData(TICKETS_KEY, TICKETS);
   queryClient.setQueryData(OTHER_TICKETS_KEY, TICKETS);
-  let currentHost = HOST;
-  const client = {
-    getActiveHostId: () => currentHost,
-    request: hoisted.request,
-  };
+  const client = { request: hoisted.request };
   const view = renderHook(
     () => {
       const mutation = useEpicUpdateArtifactStatusDirectForClient(client);
@@ -120,12 +116,10 @@ function renderWrite() {
   const invalidate = vi.spyOn(queryClient, "invalidateQueries");
   return {
     ...view,
+    queryClient,
     cachedStatus,
     cachedStatusOf,
     invalidate,
-    setCurrentHost: (hostId: string) => {
-      currentHost = hostId;
-    },
   };
 }
 
@@ -154,6 +148,26 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+function expectAllTicketReadsInvalidated(
+  predicate: (query: { queryKey: unknown }) => boolean,
+): void {
+  for (const hostId of [HOST, "host-2"]) {
+    expect(
+      predicate({
+        queryKey: hostQueryKeys.method(hostId, "epic.mentionTickets", {
+          query: "",
+          limit: 100,
+        }),
+      }),
+    ).toBe(true);
+  }
+  expect(
+    predicate({
+      queryKey: hostQueryKeys.method(HOST, "epic.listArtifacts", {}),
+    }),
+  ).toBe(false);
+}
+
 describe("useEpicUpdateArtifactStatusDirectForClient", () => {
   afterEach(() => {
     hoisted.request.mockReset();
@@ -163,7 +177,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     hoisted.toastFromHostError.mockReset();
   });
 
-  it("keeps the reads unchanged while pending, then patches and invalidates every host's on success", async () => {
+  it("keeps reads unchanged while pending, then patches every host and invalidates ticket reads", async () => {
     hoisted.peek.mockReturnValue(null);
     const answer = deferred();
     const requested = nextRequest(answer.promise);
@@ -206,21 +220,48 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     const { predicate } = view.invalidate.mock.calls[0][0] as {
       predicate: (query: { queryKey: unknown }) => boolean;
     };
-    for (const hostId of [HOST, "host-2"]) {
-      expect(
-        predicate({
-          queryKey: hostQueryKeys.method(hostId, "epic.mentionTickets", {
-            query: "",
-            limit: 100,
-          }),
-        }),
-      ).toBe(true);
-    }
-    expect(
-      predicate({
-        queryKey: hostQueryKeys.method(HOST, "epic.listArtifacts", {}),
-      }),
-    ).toBe(false);
+    expectAllTicketReadsInvalidated(predicate);
+  });
+
+  it("does not let an older in-flight ticket read overwrite a successful patch", async () => {
+    hoisted.peek.mockReturnValue(null);
+    const view = renderWrite();
+    const oldRead = deferred<EpicMentionTicketsResponse>();
+    const oldReadStarted = vi.fn();
+    const readCall = nextCallOf(oldReadStarted);
+    const oldReadResult = view.queryClient.fetchQuery({
+      queryKey: OTHER_TICKETS_KEY,
+      queryFn: ({ signal }) => {
+        signal.throwIfAborted();
+        oldReadStarted();
+        return oldRead.promise;
+      },
+      staleTime: 0,
+    });
+    const handledOldRead = oldReadResult.then(
+      () => undefined,
+      () => undefined,
+    );
+    await readCall;
+
+    const answer = deferred();
+    const requested = nextRequest(answer.promise);
+    let written = Promise.resolve();
+    await act(async () => {
+      written = view.result.current.mutateAsync(DONE);
+      await requested;
+    });
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await written;
+    });
+
+    await act(async () => {
+      oldRead.resolve(TICKETS);
+      await oldRead.promise;
+    });
+    await handledOldRead;
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
   });
 
   it("keeps the read unchanged and shows a toast when the host refuses", async () => {
@@ -258,13 +299,30 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
-  it("writes through the open Task's own queue, not to the host", async () => {
+  it("reports the open Task's queued write as pending and patches every read on commit", async () => {
     hoisted.peek.mockReturnValue(hoisted.openTask);
     hoisted.queue.enqueueWriteCommand.mockResolvedValue("command-1");
-    hoisted.queue.waitForWriteCommand.mockResolvedValue({ state: "committed" });
-    const { result } = renderWrite();
+    const answer = deferred();
+    const waitingForCommand = vi.fn();
+    hoisted.queue.waitForWriteCommand.mockImplementation(() => {
+      waitingForCommand();
+      return answer.promise;
+    });
+    const commandWait = nextCallOf(waitingForCommand);
+    const view = renderWrite();
+    let written = Promise.resolve();
 
-    await result.current.mutateAsync(DONE);
+    await act(async () => {
+      written = view.result.current.mutateAsync(DONE);
+      await commandWait;
+    });
+    view.rerender();
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(
+      view.result.current.pending.get(ticketKey("task-a", "ticket-1")),
+    ).toBe(2);
+    expect(hoisted.request).not.toHaveBeenCalled();
 
     expect(hoisted.peek).toHaveBeenCalledWith("task-a");
     expect(hoisted.queue.enqueueWriteCommand).toHaveBeenCalledWith({
@@ -274,6 +332,22 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       status: 2,
     });
     expect(hoisted.request).not.toHaveBeenCalled();
+
+    await act(async () => {
+      answer.resolve({ state: "committed" });
+      await written;
+    });
+    view.rerender();
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
+    expect(
+      view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
+    ).toBe(false);
+    expect(view.invalidate).toHaveBeenCalledTimes(1);
+    const { predicate } = view.invalidate.mock.calls[0][0] as {
+      predicate: (query: { queryKey: unknown }) => boolean;
+    };
+    expectAllTicketReadsInvalidated(predicate);
   });
 
   it("keeps the ticket read unchanged and says so when the open Task's queue refuses the write", async () => {
@@ -365,38 +439,5 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       expect(view.cachedStatusOf("ticket-2", HOST)).toBe(1);
       expect(view.invalidate).toHaveBeenCalledTimes(2);
     });
-  });
-
-  it("patches and invalidates the new host's tickets when the app-wide host changes during a write", async () => {
-    hoisted.peek.mockReturnValue(null);
-    const answer = deferred();
-    const requested = nextRequest(answer.promise);
-    const view = renderWrite();
-    let written = Promise.resolve();
-
-    await act(async () => {
-      written = view.result.current.mutateAsync(DONE);
-      await requested;
-    });
-    view.setCurrentHost("host-2");
-    await act(async () => {
-      answer.resolve({ updated: true });
-      await written;
-    });
-
-    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
-    expect(view.invalidate).toHaveBeenCalledTimes(1);
-    const { predicate } = view.invalidate.mock.calls[0][0] as {
-      predicate: (query: { queryKey: unknown }) => boolean;
-    };
-    expect(
-      predicate({
-        queryKey: hostQueryKeys.method("host-2", "epic.mentionTickets", {
-          query: "",
-          limit: 100,
-        }),
-      }),
-    ).toBe(true);
   });
 });
