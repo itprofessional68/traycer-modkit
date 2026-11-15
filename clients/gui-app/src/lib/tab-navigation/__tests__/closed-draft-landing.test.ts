@@ -47,7 +47,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -64,7 +64,7 @@ function seedSingleTab(ref: TabRef): void {
     version: 2,
     items: [{ kind: "tab", id: tabItemId(ref), ref }],
     activeItemId: tabItemId(ref),
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -197,6 +197,7 @@ describe("retained closed drafts do not count as restored tabs", () => {
           name: "Settings",
           lastPath: "/settings/providers",
         },
+        todos: null,
       },
     });
     expect(hasRestoredTabs()).toBe(true);

@@ -88,6 +88,7 @@ export interface KeybindingRouter {
     tab: Pick<EpicViewTab, "tabId" | "epicId">,
   ) => void;
   readonly navigateToEpicList: () => void;
+  readonly navigateToTodos: () => void;
   readonly navigateSettingsSection: (sectionId: SettingsSectionId) => void;
   /**
    * Canonical tab activation seam. Routes a `TabActivationIntent`
@@ -443,6 +444,10 @@ const STATIC_HANDLERS: Readonly<Partial<Record<ActionId, StaticHandler>>> = {
   },
   "app.history.open": (r) => {
     r.navigateToEpicList();
+    return true;
+  },
+  "app.todos.open": (r) => {
+    r.navigateToTodos();
     return true;
   },
   // Reports `false` while the Home tab is off, so the provider leaves the chord

@@ -20,7 +20,7 @@ function resetState(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   tabCommandCoordinator.resetReconciliationForTesting();
 }
@@ -59,7 +59,7 @@ function seedFlatPhase(): void {
     ],
     activeItemId: "tab:epic:phase-tab",
     stripOrder: [PHASE_REF, PARTNER_REF],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -80,7 +80,7 @@ function seedSplitPhase(): void {
     ],
     activeItemId: "phase-split",
     stripOrder: [PHASE_REF, PARTNER_REF],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

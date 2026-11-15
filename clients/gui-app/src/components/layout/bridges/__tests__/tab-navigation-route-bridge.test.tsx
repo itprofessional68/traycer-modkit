@@ -144,7 +144,7 @@ beforeEach(() => {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   __resetTabNavigationControllerForTesting();
 });

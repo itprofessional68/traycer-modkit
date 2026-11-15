@@ -335,7 +335,7 @@ export function seedTabs(sessionTab: boolean): void {
     items,
     activeItemId: tabItemId(sessionTab ? SAMPLE_WORKSPACE_REF : epsilon),
     stripOrder: sessionTab ? [...refs, SAMPLE_WORKSPACE_REF] : refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: {
       [SEED_GROUP_ID]: { name: "Work", color: "#8ab4f8", collapsed: false },
     },

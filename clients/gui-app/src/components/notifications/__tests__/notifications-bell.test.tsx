@@ -297,6 +297,7 @@ const DYNAMIC_ACTION_ROUTER: KeybindingRouter = {
   navigateToEpic: () => undefined,
   navigateToEpicTab: () => undefined,
   navigateToEpicList: () => undefined,
+  navigateToTodos: () => undefined,
   navigateSettingsSection: () => undefined,
   navigateToTabIntent: () => undefined,
   goBack: () => undefined,

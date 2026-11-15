@@ -60,6 +60,7 @@ export const ACTION_IDS = [
   "app.rate-limits.open",
   "app.notifications.open",
   "app.history.open",
+  "app.todos.open",
   "app.chat-search.open",
   "app.home.open",
   "app.settings.open",
@@ -721,6 +722,21 @@ export const ACTION_META: Readonly<Record<ActionId, ActionMeta>> = {
     defaultChord: "mod+y",
     secondaryChord: undefined,
     terminalPolicy: "shell",
+    secondaryTerminalPolicy: undefined,
+    desktopOnly: false,
+  },
+  "app.todos.open": {
+    id: "app.todos.open",
+    label: "Open To-dos",
+    description:
+      "Open the tickets of every task, or focus the To-dos tab if present.",
+    category: "app",
+    kind: "chord",
+    // Unbound by default: the free chords are better spent on what everyone
+    // uses. Bind one in Settings › Keybindings.
+    defaultChord: null,
+    secondaryChord: undefined,
+    terminalPolicy: "app",
     secondaryTerminalPolicy: undefined,
     desktopOnly: false,
   },

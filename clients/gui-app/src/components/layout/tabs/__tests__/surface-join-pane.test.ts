@@ -122,6 +122,17 @@ const HISTORY_TAB: HeaderTab = {
   lastPath: null,
 };
 
+const TODOS_TAB: HeaderTab = {
+  kind: "todos",
+  id: "todos",
+  route: "/todos",
+  name: "To-dos",
+  icon: null,
+  canDuplicate: false,
+  canOpenInNewWindow: false,
+  lastPath: null,
+};
+
 const DRAFT_TAB: HeaderTab = {
   kind: "draft",
   id: DRAFT.id,
@@ -183,6 +194,7 @@ const HEADER_TAB_BY_KIND: Readonly<Record<HeaderTabKind, HeaderTab>> = {
   settings: SETTINGS_TAB,
   home: HOME_TAB,
   history: HISTORY_TAB,
+  todos: TODOS_TAB,
   "sample-workspace": SAMPLE_WORKSPACE_TAB,
 };
 

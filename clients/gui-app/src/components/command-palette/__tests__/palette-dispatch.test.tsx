@@ -30,6 +30,7 @@ function buildRouter(calls: RouterCalls): KeybindingRouter {
     navigateToEpicList: () => {
       calls.epicList += 1;
     },
+    navigateToTodos: () => undefined,
     navigateSettingsSection: (sectionId) => {
       calls.settingsSection.push(sectionId);
     },

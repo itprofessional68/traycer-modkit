@@ -27,7 +27,7 @@ export interface TabRef {
  */
 export interface SystemTab {
   readonly id: string;
-  readonly kind: "history" | "settings";
+  readonly kind: "history" | "settings" | "todos";
   readonly name: string;
   readonly lastPath: string | null;
 }
@@ -116,6 +116,16 @@ export type HeaderTab = { readonly appearance?: HeaderTabAppearance | null } & (
   | {
       readonly kind: "history";
       readonly id: "history";
+      readonly route: string;
+      readonly name: string;
+      readonly icon: TabIcon | null;
+      readonly canDuplicate: boolean;
+      readonly canOpenInNewWindow: boolean;
+      readonly lastPath: string | null;
+    }
+  | {
+      readonly kind: "todos";
+      readonly id: "todos";
       readonly route: string;
       readonly name: string;
       readonly icon: TabIcon | null;

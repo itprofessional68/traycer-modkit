@@ -4488,6 +4488,7 @@ describe("<RateLimitPopover /> host picker", () => {
           name: "Settings",
           lastPath: null,
         },
+        todos: null,
         history: {
           id: "history",
           kind: "history",

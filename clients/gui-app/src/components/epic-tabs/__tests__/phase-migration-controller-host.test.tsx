@@ -40,7 +40,7 @@ function resetState(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   tabCommandCoordinator.resetReconciliationForTesting();
 }
@@ -89,7 +89,7 @@ function seedMigration(focusedSide: "left" | "right"): void {
       { kind: "epic", id: "phase-tab" },
       { kind: "epic", id: "partner-tab" },
     ],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

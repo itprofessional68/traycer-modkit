@@ -176,7 +176,7 @@ function syncStrip(active: TabRef): void {
     })),
     activeItemId: tabItemId(active),
     activationHistory: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   };
   useTabsStore.setState((state) => ({ ...state, ...layout, stripOrder: refs }));
 }

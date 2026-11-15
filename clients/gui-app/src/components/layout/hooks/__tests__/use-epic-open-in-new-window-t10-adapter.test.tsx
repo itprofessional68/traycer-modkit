@@ -232,7 +232,7 @@ function seedPairedSplit(): void {
     ],
     activeItemId: "split-move",
     stripOrder: [MOVING, PARTNER],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

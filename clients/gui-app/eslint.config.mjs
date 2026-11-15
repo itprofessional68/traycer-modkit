@@ -1773,6 +1773,8 @@ const hooksEpicAppWideByCallerExemptions = [
   // Mounted by the epic ROUTE, above the session provider; its reader (the
   // home page's recents) is on the same app-wide client.
   "src/hooks/epic/use-epic-record-viewed-mutation.ts",
+  // To-dos tab: its tickets span Tasks, so no session host answers for them.
+  "src/hooks/epic/use-epic-mention-tickets-query.ts",
   // `useEpicCreateChat` is the composer PLACEMENT seam (ruled app-wide, with a
   // pre-flight host fence); every session-scoped hook in this file already
   // resolves `useEpicSessionHostClient` or takes a client.

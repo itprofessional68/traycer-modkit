@@ -440,7 +440,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [],
     });
     useEpicCanvasStore.setState({
@@ -480,7 +480,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [],
     });
     useEpicCanvasStore.setState({
@@ -2214,7 +2214,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2268,7 +2268,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2308,7 +2308,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: "moved-draft-item", ref: draftRef }],
       activeItemId: "moved-draft-item",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     createGate.resolve({ roomInfo: null });
@@ -2331,7 +2331,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2471,7 +2471,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2542,7 +2542,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2604,7 +2604,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2674,7 +2674,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [{ kind: "tab", id: tabItemId(draftRef), ref: draftRef }],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [draftRef],
     });
     const createGate = deferred<unknown>();
@@ -2747,7 +2747,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("focus-split", refA, refB, "right")],
       activeItemId: "focus-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     const createGate = deferred<unknown>();
@@ -2785,20 +2785,20 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("focus-split", refA, refB, "left")],
       activeItemId: "focus-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     // Focus away and back after intent cannot retroactively grant ownership.
     useTabsStore.setState({
       items: [splitItem("focus-split", refA, refB, "right")],
       activeItemId: "focus-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     useTabsStore.setState({
       items: [splitItem("focus-split", refA, refB, "left")],
       activeItemId: "focus-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
 
@@ -2827,7 +2827,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("move-split", refA, refB, "left")],
       activeItemId: "move-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     const createGate = deferred<unknown>();
@@ -2865,7 +2865,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("move-split", refB, refA, "right")],
       activeItemId: "move-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refB, refA],
     });
 
@@ -2900,7 +2900,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("dual-split", refA, refB, "left")],
       activeItemId: "dual-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     const firstCreate = deferred<unknown>();
@@ -2936,7 +2936,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("dual-split", refA, refB, "right")],
       activeItemId: "dual-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     act(() => {
@@ -2981,7 +2981,7 @@ describe("useLandingComposerActions", () => {
     useTabsStore.setState({
       items: [splitItem("terminal-split", refA, refB, "right")],
       activeItemId: "terminal-split",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [refA, refB],
     });
     const queryClient = new QueryClient({

@@ -217,7 +217,7 @@ describe("settings section is store-backed, not URL-backed", () => {
       items: [],
       activeItemId: null,
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     useHistorySearchStore.setState({ search: DEFAULT_HISTORY_SEARCH });
   });
@@ -469,14 +469,18 @@ describe("history scope survives promotion", () => {
     __resetTabNavigationControllerForTesting();
     resetSystemTabModalColdLoadForTests();
     modalProbe.current = null;
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
     useHistorySearchStore.setState({ search: DEFAULT_HISTORY_SEARCH });
   });
   afterEach(() => {
     cleanup();
     prepareHistoryScopeForPromotion();
     consumeHistoryScopeForPromotion();
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
     useHistorySearchStore.setState({ search: DEFAULT_HISTORY_SEARCH });
   });
 
@@ -544,7 +548,9 @@ describe("history scope survives promotion", () => {
 
     // Reopen the modal (no tab yet) and promote WITHOUT a new capture: the
     // consumed scope must not come back.
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
     await act(async () => {
       await router.navigate({ to: "/" });
     });
@@ -619,12 +625,16 @@ describe("useSystemTabModalRefreshGuard", () => {
     // otherwise a prior test's boot consumes it and the redirect below never
     // gets to fire.
     resetSystemTabModalColdLoadForTests();
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
   });
   afterEach(() => {
     cleanup();
     __resetTabNavigationControllerForTesting();
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
   });
 
   it("does not issue a second navigation when no system modal overlay is open", async () => {
@@ -657,6 +667,7 @@ describe("useSystemTabModalRefreshGuard", () => {
           name: "Settings",
           lastPath: "/settings/general",
         },
+        todos: null,
       },
     });
     const router = buildRouter("/epics/epic-1/tab-1?settingsOverlay=true");
@@ -711,6 +722,7 @@ describe("useSystemTabModalRefreshGuard", () => {
           name: "Settings",
           lastPath: "/settings/general",
         },
+        todos: null,
       },
     });
     const windowId = "cold-boot-overlay-ahead";
@@ -831,13 +843,17 @@ describe("openHistory viewport gate", () => {
 
   beforeEach(() => {
     modalProbe.current = null;
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
     useHistorySearchStore.setState({ search: DEFAULT_HISTORY_SEARCH });
   });
   afterEach(() => {
     cleanup();
     setInnerWidth(originalInnerWidth);
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
     useHistorySearchStore.setState({ search: DEFAULT_HISTORY_SEARCH });
   });
 
@@ -963,7 +979,7 @@ describe("openSettings carries tab and draft into the settings-open-intent store
       items: [],
       activeItemId: null,
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
   afterEach(() => {

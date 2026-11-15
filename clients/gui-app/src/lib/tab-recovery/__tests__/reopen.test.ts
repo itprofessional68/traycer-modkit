@@ -139,6 +139,7 @@ function router(pathname: string): KeybindingRouter {
     navigateToEpic: () => undefined,
     navigateToEpicTab: () => undefined,
     navigateToEpicList: () => undefined,
+    navigateToTodos: () => undefined,
     navigateSettingsSection: () => undefined,
     navigateToTabIntent: (intent) => mocks.navigateToTabIntent(intent),
     goBack: () => undefined,

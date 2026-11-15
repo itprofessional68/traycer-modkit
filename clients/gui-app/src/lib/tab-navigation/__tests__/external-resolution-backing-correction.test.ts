@@ -245,7 +245,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -282,7 +282,7 @@ describe("external epic resolution: same-tab commits skip the coordinator", () =
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -343,7 +343,7 @@ describe("external epic resolution: same-tab commits skip the coordinator", () =
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const activateSpy = failEveryActivation();
@@ -390,7 +390,7 @@ describe("landing correction aims at the layout, not the literal landing", () =>
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     failEveryActivation();
@@ -434,6 +434,7 @@ describe("landing correction aims at the layout, not the literal landing", () =>
           name: "Settings",
           lastPath: "/settings/providers",
         },
+        todos: null,
       },
     });
     seedCommittedLayout({
@@ -448,6 +449,7 @@ describe("landing correction aims at the layout, not the literal landing", () =>
           name: "Settings",
           lastPath: "/settings/providers",
         },
+        todos: null,
       },
     });
     const nav = makeDeferredNavigate();
@@ -481,7 +483,7 @@ describe("landing correction aims at the layout, not the literal landing", () =>
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     failEveryActivation();
@@ -515,7 +517,7 @@ describe("landing correction aims at the layout, not the literal landing", () =>
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     failEveryActivation();
@@ -687,7 +689,7 @@ describe("closing the Settings overlay over a populated strip", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const history = makeAppliedHistory();
     history.push(a.pathname, undefined);
@@ -721,7 +723,7 @@ describe("closing the Settings overlay over a populated strip", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const history = makeAppliedHistory();
     history.push("/", undefined);
@@ -766,7 +768,7 @@ describe("stepping back onto the landing with the Home tab on", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const history = makeAppliedHistory();
     // The boot entry the phone shell leaves behind, then the tab the user
@@ -790,7 +792,7 @@ describe("stepping back onto the landing with the Home tab on", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const history = makeAppliedHistory();
     history.push("/", undefined);

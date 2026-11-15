@@ -101,7 +101,7 @@ function seedGroup(collapsed: boolean): TabGroup {
     items: [{ kind: "tab", id: tabItemId(member), ref: member }],
     activeItemId: tabItemId(member),
     stripOrder: [member],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: { [GROUP_ID]: group },
     customizations: {
       [tabRefKey(member)]: { color: null, icon: null, groupId: GROUP_ID },
@@ -252,7 +252,7 @@ describe("SideTabGroupHeader", () => {
       items: [{ kind: "tab", id: tabItemId(member), ref: member }],
       activeItemId: tabItemId(member),
       stripOrder: [member],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       groups: { [GROUP_ID]: group },
       customizations: {
         [tabRefKey(member)]: { color: null, icon: null, groupId: GROUP_ID },

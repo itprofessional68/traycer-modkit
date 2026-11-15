@@ -104,6 +104,7 @@ function buildRouter(initialPath: string): MockRouter {
       calls.push({ kind: "epic", epicId: null, sectionId: null });
       pathname = "/epics";
     },
+    navigateToTodos: () => undefined,
     navigateSettingsSection: (sectionId) => {
       calls.push({ kind: "section", epicId: null, sectionId });
       pathname = `/settings/${sectionId}`;
@@ -139,6 +140,9 @@ function buildRouter(initialPath: string): MockRouter {
       } else if (intent.kind === "tracy") {
         calls.push({ kind: "home", epicId: null, sectionId: null });
         pathname = intent.botId === null ? "/bot" : `/bot/${intent.botId}`;
+      } else if (intent.kind === "todos") {
+        calls.push({ kind: "home", epicId: null, sectionId: null });
+        pathname = "/todos";
       } else {
         calls.push({
           kind: "section",
@@ -198,7 +202,7 @@ describe("dispatchAction", () => {
     setSystemTabModalApi(null);
     useTabsStore.setState({
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 
@@ -722,6 +726,7 @@ describe("leader digit dispatch (global scope)", () => {
           name: "Settings",
           lastPath: "/settings/general",
         },
+        todos: null,
       },
     });
 
@@ -738,7 +743,7 @@ function seedEpicTabs(): void {
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   const firstTabId = useEpicCanvasStore.getState().openEpicTab("e1", "Epic 1");
   useEpicCanvasStore.getState().openEpicTab("e2", "Epic 2");
@@ -813,7 +818,7 @@ function seedManyEpicTabs(count: number): ReadonlyArray<string> {
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   const tabIds = Array.from({ length: count }, (_, index) =>
     useEpicCanvasStore
@@ -851,7 +856,7 @@ describe("<KeybindingProvider /> inside a Diffs editor boundary", () => {
     useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
     useTabsStore.setState({
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 
@@ -951,7 +956,7 @@ describe("<KeybindingProvider /> and AltGr (Ctrl+Alt presented as AltGraph)", ()
     useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
     useTabsStore.setState({
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 
@@ -1089,7 +1094,7 @@ describe("<KeybindingProvider /> and the suggested-reply accept key", () => {
     useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
     useTabsStore.setState({
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 

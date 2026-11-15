@@ -165,6 +165,7 @@ function withSystemHistory(
         lastPath: null,
       },
       settings: layout.systemTabs.settings,
+      todos: null,
     },
   };
 }
@@ -250,6 +251,7 @@ describe("TAB_KINDS surface exhaustiveness", () => {
       "home",
       "sample-workspace",
       "settings",
+      "todos",
     ];
     expect(Object.keys(TAB_KINDS).length).toBe(expectedKinds.length);
     expectedKinds.forEach((kind) => {
@@ -265,6 +267,7 @@ describe("TAB_KINDS surface exhaustiveness", () => {
     expectTypeOf(TAB_KINDS).toHaveProperty("settings");
     expectTypeOf(TAB_KINDS).toHaveProperty("home");
     expectTypeOf(TAB_KINDS).toHaveProperty("sample-workspace");
+    expectTypeOf(TAB_KINDS).toHaveProperty("todos");
 
     expectTypeOf(tabSurfaceDescriptor("epic")).toEqualTypeOf<
       TabSurfaceDescriptor<"epic">
@@ -286,6 +289,9 @@ describe("TAB_KINDS surface exhaustiveness", () => {
     >();
     expectTypeOf(tabSurfaceDescriptor("sample-workspace")).toEqualTypeOf<
       TabSurfaceDescriptor<"sample-workspace">
+    >();
+    expectTypeOf(tabSurfaceDescriptor("todos")).toEqualTypeOf<
+      TabSurfaceDescriptor<"todos">
     >();
 
     expectTypeOf(TAB_KINDS.epic.descriptor.surface).toExtend<
@@ -1092,6 +1098,7 @@ describe("layout reducers preserve invariants", () => {
             lastPath: null,
           },
           settings: null,
+          todos: null,
         },
       );
 

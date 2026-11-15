@@ -167,7 +167,7 @@ function openTask(taskId: string): string {
     })),
     stripOrder: refs,
     activeItemId: refs.length > 0 ? tabItemId(refs[refs.length - 1]) : null,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return tabId;
 }

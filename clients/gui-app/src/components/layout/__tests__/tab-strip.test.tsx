@@ -319,7 +319,7 @@ function seedSplitHeaderTabs(): void {
     ],
     activeItemId: "split-a",
     stripOrder: [left, right],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -350,6 +350,7 @@ function seedActiveSplit(left: SplitSide, right: SplitSide): void {
         ? { id: "history", kind: "history", name: "History", lastPath: null }
         : null,
       settings: null,
+      todos: null,
     },
   });
 }
@@ -607,7 +608,7 @@ function resetStores(): void {
   useEpicDndStore.getState().dragEnded();
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   __getOpenEpicRegistryForTests().disposeAll();
   __getChatSessionRegistryForTests().disposeAll();
@@ -658,7 +659,7 @@ function seedPhaseMigrationHeaderTabs(): void {
       { kind: "epic", id: PHASE_TAB_ID },
       { kind: "epic", id: PARTNER_TAB_ID },
     ],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -842,7 +843,7 @@ function seedTwoEpicTabs(): { readonly alpha: TabRef; readonly beta: TabRef } {
     ],
     activeItemId: tabItemId(alpha),
     stripOrder: [alpha, beta],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return { alpha, beta };
 }
@@ -1215,7 +1216,7 @@ describe("<TabStrip />", () => {
       items: [{ kind: "tab", id: tabItemId(sampleRef), ref: sampleRef }],
       activeItemId: tabItemId(sampleRef),
       stripOrder: [sampleRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     // The scroller shows 0..200; the tab's member box runs 120..320, so 120px
     // of it - the trailing cap and the end of the label - is past the edge.
@@ -1255,7 +1256,7 @@ describe("<TabStrip />", () => {
       ],
       activeItemId: tabItemId(sampleRef),
       stripOrder: [epicRef, sampleRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter("/sample-workspace");
     render(<RouterProvider router={router} />);
@@ -1689,7 +1690,7 @@ describe("<TabStrip />", () => {
         items: [{ kind: "tab", id: tabItemId(sampleRef), ref: sampleRef }],
         activeItemId: tabItemId(sampleRef),
         stripOrder: [sampleRef],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       const router = buildRouter("/sample-workspace");
       render(<RouterProvider router={router} />);
@@ -2079,7 +2080,7 @@ describe("<TabStrip />", () => {
       // branches of the rule in one render.
       activeItemId: tabItemId(refE),
       stripOrder: [refA, refB, refC, refD, refE],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter(`/epics/${tabE.id}/${tabE.id}`);
     render(<RouterProvider router={router} />);
@@ -2136,7 +2137,7 @@ describe("<TabStrip />", () => {
       ],
       activeItemId: "split-a",
       stripOrder: [refA, refB, refC, refD],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter(`/epics/${EPIC_A.id}/${EPIC_A.id}`);
     render(<RouterProvider router={router} />);

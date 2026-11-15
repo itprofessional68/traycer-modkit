@@ -409,6 +409,7 @@ async function withSettingsTabSelected(): Promise<void> {
         name: "Settings",
         lastPath: "/settings/sandboxes",
       },
+      todos: null,
     },
   });
   installTabSyncCoordinator({ readyPromise: Promise.resolve() });

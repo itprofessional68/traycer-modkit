@@ -241,7 +241,7 @@ function seedCommittedLayout(args: {
     version: 2 as const,
     items: args.items,
     activeItemId: args.activeItemId,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   };
   useTabsStore.setState({ ...layout, stripOrder: flattenLayoutRefs(layout) });
 }

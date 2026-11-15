@@ -26,7 +26,7 @@ function resetState(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   tabCommandCoordinator.resetReconciliationForTesting();
 }
@@ -75,7 +75,7 @@ function seedPendingSplit(): void {
       { kind: "epic", id: PHASE_TAB_ID },
       { kind: "epic", id: PARTNER_TAB_ID },
     ],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

@@ -27,7 +27,7 @@ function layoutWith(collapsed: boolean): PersistedTabStripLayout {
     version: 2,
     items: ["l", "m", "r", "x"].map(item),
     activeItemId: null,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     customizations: Object.fromEntries(
       ["m", "r"].map((id) => [
         tabRefKey(ref(id)),

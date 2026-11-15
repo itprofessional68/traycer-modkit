@@ -24,6 +24,7 @@ const persistedKinds = {
   draft: "draft",
   tracy: "tracy",
   history: "history",
+  todos: "todos",
   // Listed so the mapping stays exhaustive over `TabRef["kind"]` - NOT because
   // Home is ever journaled. Home is a per-window pinned singleton with no close
   // affordance, and the close path only builds a recovery entry for `draft` and

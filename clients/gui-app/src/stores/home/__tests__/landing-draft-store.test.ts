@@ -156,7 +156,7 @@ function resetStore(): void {
   });
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

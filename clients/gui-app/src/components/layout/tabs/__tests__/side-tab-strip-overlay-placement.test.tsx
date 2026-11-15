@@ -405,7 +405,7 @@ function openAlphaTab(): void {
     items: [{ kind: "tab", id: tabItemId(ALPHA), ref: ALPHA }],
     activeItemId: tabItemId(ALPHA),
     stripOrder: [ALPHA],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

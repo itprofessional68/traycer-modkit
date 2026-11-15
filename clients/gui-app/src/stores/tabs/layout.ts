@@ -57,6 +57,7 @@ export interface PersistedTabStripLayout {
 export interface SystemTabs {
   readonly history: SystemTab | null;
   readonly settings: SystemTab | null;
+  readonly todos: SystemTab | null;
 }
 
 export interface PairLayoutArgs {
@@ -126,7 +127,7 @@ export function splitItemId(id: string): string {
 }
 
 export function emptySystemTabs(): SystemTabs {
-  return { history: null, settings: null };
+  return { history: null, settings: null, todos: null };
 }
 
 export function emptyTabStripLayout(): PersistedTabStripLayout {
@@ -686,7 +687,8 @@ export function repairLayout(
   const missingSystemRefs = flattenLayoutRefs(withSystemRefs).filter(
     (ref) =>
       (ref.kind === "history" && systemTabs.history === null) ||
-      (ref.kind === "settings" && systemTabs.settings === null),
+      (ref.kind === "settings" && systemTabs.settings === null) ||
+      (ref.kind === "todos" && systemTabs.todos === null),
   );
   const withoutMissingSystemRefs = missingSystemRefs.reduce(
     (current, ref) => removeLayoutRef(current, ref, false),
@@ -891,6 +893,7 @@ function validRef(ref: TabRef, isKnownTabKind: IsKnownTabKind): boolean {
   if (!isKnownTabKind(ref.kind) || ref.id.length === 0) return false;
   if (ref.kind === "history") return ref.id === "history";
   if (ref.kind === "settings") return ref.id === "settings";
+  if (ref.kind === "todos") return ref.id === "todos";
   // Home is a registered kind but never a strip item: it has no source record,
   // is not persisted, and is rendered structurally beside the strip. Refusing
   // it here is what keeps a persisted or hand-edited payload from materializing
@@ -965,6 +968,10 @@ function repairSystemTabs(systemTabs: SystemTabs): SystemTabs {
     settings:
       systemTabs.settings !== null && systemTabs.settings.kind === "settings"
         ? { ...systemTabs.settings, id: "settings", kind: "settings" }
+        : null,
+    todos:
+      systemTabs.todos !== null && systemTabs.todos.kind === "todos"
+        ? { ...systemTabs.todos, id: "todos", kind: "todos" }
         : null,
   };
 }

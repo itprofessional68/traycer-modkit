@@ -334,6 +334,7 @@ export function useHeaderTabForRef(ref: TabRef | null): HeaderTab | null {
   const system = useTabsStore((state) => {
     if (ref?.kind === "history") return state.systemTabs.history;
     if (ref?.kind === "settings") return state.systemTabs.settings;
+    if (ref?.kind === "todos") return state.systemTabs.todos;
     return null;
   });
   const tracy = useTracySurfaceStore((state) =>
@@ -371,6 +372,11 @@ export function useHeaderTabForRef(ref: TabRef | null): HeaderTab | null {
           system,
           TAB_KINDS.history.build,
         );
+  }
+  if (ref.kind === "todos") {
+    return system === null
+      ? null
+      : memoizedHeaderTab(todosHeaderTabCache, system, TAB_KINDS.todos.build);
   }
   return system === null
     ? null
@@ -461,6 +467,7 @@ function selectTracySource(state: {
 }
 const historyHeaderTabCache = new WeakMap<SystemTab, HeaderTab>();
 const settingsHeaderTabCache = new WeakMap<SystemTab, HeaderTab>();
+const todosHeaderTabCache = new WeakMap<SystemTab, HeaderTab>();
 
 function memoizedHeaderTab<S extends object>(
   cache: WeakMap<S, HeaderTab>,
@@ -481,6 +488,7 @@ interface HeaderTabSources {
   readonly systemTabs: {
     readonly history: SystemTab | null;
     readonly settings: SystemTab | null;
+    readonly todos: SystemTab | null;
   };
   readonly structuralLockRevision: number;
   /**
@@ -562,6 +570,13 @@ function resolveRef(
     if (source === null) return [];
     return [
       memoizedHeaderTab(historyHeaderTabCache, source, TAB_KINDS.history.build),
+    ];
+  }
+  if (ref.kind === "todos") {
+    const source = systemTabs.todos;
+    if (source === null) return [];
+    return [
+      memoizedHeaderTab(todosHeaderTabCache, source, TAB_KINDS.todos.build),
     ];
   }
   // settings

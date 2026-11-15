@@ -49,6 +49,7 @@ describe("S1 - the capture rides on the sample strip item", () => {
           lastPath: null,
         },
         settings: null,
+        todos: null,
       },
       activationHistory: [],
     };
@@ -112,6 +113,7 @@ describe("S1 round 2 - pure reducer, Home unavailable", () => {
           lastPath: null,
         },
         settings: null,
+        todos: null,
       },
       activationHistory: [],
     };
@@ -150,7 +152,7 @@ describe("S1 round 2 - pure reducer, Home unavailable", () => {
           sampleReturnItemId: null,
         },
       ],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     };
 
     const stripped = withoutSampleWorkspace(onlySample, false);

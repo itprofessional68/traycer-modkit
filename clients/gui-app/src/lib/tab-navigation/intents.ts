@@ -71,6 +71,7 @@ export type TabNavigationIntent =
    */
   | { readonly kind: "tracy"; readonly botId: string | null }
   | { readonly kind: "history" }
+  | { readonly kind: "todos" }
   | { readonly kind: "settings"; readonly section: SettingsSectionId }
   | { readonly kind: "home" }
   | { readonly kind: "sample-workspace" };
@@ -312,6 +313,13 @@ export function historyTabIntent(): Extract<
   { kind: "history" }
 > {
   return { kind: "history" };
+}
+
+export function todosTabIntent(): Extract<
+  TabNavigationIntent,
+  { kind: "todos" }
+> {
+  return { kind: "todos" };
 }
 
 /** The Tracy surface on `botId`'s channel. */

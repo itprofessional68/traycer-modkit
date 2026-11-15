@@ -32,7 +32,11 @@ import {
 import { isMobileApp } from "@/lib/mobile-app";
 import { landingDraftIsRetired } from "@/lib/drafts/landing-draft-retirement";
 import { tabSurfaceDescriptor } from "@/stores/tabs/registry";
-import { isRegisteredTabKind } from "@/stores/tabs/tab-kind-policy";
+import {
+  isRegisteredTabKind,
+  isSystemTabKind,
+  type SystemTabKind,
+} from "@/stores/tabs/tab-kind-policy";
 import {
   consumeLegacyTabsSourceActiveSelection,
   layoutHomeIsActive,
@@ -131,7 +135,7 @@ export interface CreatePhaseMigrationForSplitCommand extends CreateDraftForSplit
 }
 
 export interface CreateSystemForSplitCommand extends CreateDraftForSplitCommand {
-  readonly systemKind: "history" | "settings";
+  readonly systemKind: SystemTabKind;
   readonly name: string;
   readonly lastPath: string;
 }
@@ -200,7 +204,7 @@ export type CoordinatedTabActivationTarget =
     }
   | {
       readonly kind: "system";
-      readonly systemKind: "history" | "settings";
+      readonly systemKind: SystemTabKind;
       readonly name: string;
       readonly lastPath: string;
     }
@@ -517,7 +521,7 @@ function layoutWithRemovedRef(
   ref: TabRef,
 ): PersistedTabStripLayout {
   const next = removeLayoutRef(layout, ref, isHomeTabEnabled());
-  if (ref.kind !== "history" && ref.kind !== "settings") return next;
+  if (!isSystemTabKind(ref.kind)) return next;
   return {
     ...next,
     systemTabs: { ...next.systemTabs, [ref.kind]: null },
@@ -1763,8 +1767,7 @@ export class TabCommandCoordinator {
     this.execute({
       layout: next,
       reservedAdditions: [],
-      pendingRemovals:
-        ref.kind === "history" || ref.kind === "settings" ? [] : [ref],
+      pendingRemovals: isSystemTabKind(ref.kind) ? [] : [ref],
       projectSourceCompatibility: true,
       applySources: () => undefined,
       applyRemovals: () => withoutTabRecovery(() => this.removeSourceRef(ref)),
@@ -1903,10 +1906,7 @@ export class TabCommandCoordinator {
     const sourceKeys = new Set(tabSourceRefs().map(tabRefKey));
     const current = currentLayout();
     const missing = flattenLayoutRefs(layout).filter(
-      (ref) =>
-        ref.kind !== "history" &&
-        ref.kind !== "settings" &&
-        !sourceKeys.has(tabRefKey(ref)),
+      (ref) => !isSystemTabKind(ref.kind) && !sourceKeys.has(tabRefKey(ref)),
     );
     const repaired = repairedLayoutPreservingHome(
       missing.reduce(
@@ -1916,10 +1916,7 @@ export class TabCommandCoordinator {
     );
     const currentKeys = new Set(flattenLayoutRefs(current).map(tabRefKey));
     const reservedAdditions = flattenLayoutRefs(repaired).filter(
-      (ref) =>
-        !currentKeys.has(tabRefKey(ref)) &&
-        ref.kind !== "history" &&
-        ref.kind !== "settings",
+      (ref) => !currentKeys.has(tabRefKey(ref)) && !isSystemTabKind(ref.kind),
     );
     this.execute({
       layout: repaired,

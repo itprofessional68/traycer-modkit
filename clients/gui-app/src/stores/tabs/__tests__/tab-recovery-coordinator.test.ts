@@ -46,7 +46,7 @@ function resetStores(): void {
     activeItemId: null,
     stripOrder: [],
     activationHistory: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     customizations: undefined,
     groups: undefined,
   });
@@ -69,7 +69,7 @@ function seedStrip(refs: ReadonlyArray<TabRef>, active: TabRef): void {
       ref,
     })),
     activeItemId: tabItemId(active),
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     activationHistory: [],
   };
   useTabsStore.setState({
@@ -346,7 +346,7 @@ describe("tab recovery through the command coordinator", () => {
       activeItemId: tabItemId(draftRef),
       stripOrder: [draftRef, taskRef],
       activationHistory: [draftRef, taskRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     useEpicCanvasStore.getState().closeTab(taskId);
@@ -684,7 +684,7 @@ describe("tab recovery through the command coordinator", () => {
         version: 2,
         items: [tabItem(refC), split],
         activeItemId: split.id,
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
         activationHistory: [refB, refC],
       });
 
@@ -740,7 +740,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [tabItem(refA), tabItem(refB), tabItem(refC)],
       activeItemId: tabItemId(refC),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         [tabRefKey(refA)]: {
           color: "#f28b82",
@@ -813,7 +813,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [tabItem(refA), tabItem(refB)],
       activeItemId: tabItemId(refB),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         [tabRefKey(refA)]: { color: null, icon: "A", groupId: "renamed-group" },
         [tabRefKey(refB)]: { color: null, icon: "B", groupId: "renamed-group" },
@@ -866,7 +866,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split, tabItem(refC)],
       activeItemId: tabItemId(refC),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     batchHeaderTabRecovery(() => {
@@ -905,7 +905,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split, tabItem(refC)],
       activeItemId: tabItemId(refC),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     batchHeaderTabRecovery(() => {
@@ -946,7 +946,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [tabItem(refC), splitItem("split-old", refA, refB, 0.6)],
       activeItemId: "split-old",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     expect(tabCommandCoordinator.closeRefAfterConfirmed(refA)).toBe(true);
@@ -955,7 +955,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [newSplit],
       activeItemId: newSplit.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const entry = useTabRecoveryHistory.getState().entries.at(0);
     if (entry === undefined) {
@@ -982,7 +982,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         [tabRefKey(refA)]: {
           color: "#f28b82",
@@ -1041,7 +1041,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     expect(tabCommandCoordinator.closeRefAfterConfirmed(ref)).toBe(true);
@@ -1068,7 +1068,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     expect(tabCommandCoordinator.closeRefAfterConfirmed(taskRef)).toBe(true);
@@ -1101,7 +1101,7 @@ describe("tab recovery through the command coordinator", () => {
       version: 2,
       items: [split],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     useEpicCanvasStore.getState().closeTab(taskA);
@@ -1253,7 +1253,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [tabItem(refC), split],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     expect(tabCommandCoordinator.closeRefAfterConfirmed(refA)).toBe(true);
     const closed = latestRecoveryItems();
@@ -1276,7 +1276,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [split, tabItem(refD)],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const closed = closeTogether([refA, refD]);
     expect(closed.map((item) => item.index)).toEqual([0, 1]);
@@ -1297,7 +1297,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [split, tabItem(refC)],
       activeItemId: tabItemId(refC),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const closed = closeTogether([refA, refB]);
 
@@ -1318,7 +1318,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [split, tabItem(refC)],
       activeItemId: split.id,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const closed = closeTogether([refA, refB, refC]);
 
@@ -1363,7 +1363,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [tabItem(refA), tabItem(refB), tabItem(refC)],
       activeItemId: tabItemId(refC),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         [tabRefKey(refA)]: { color: null, icon: "A", groupId: "group-motion" },
         [tabRefKey(refB)]: { color: null, icon: "B", groupId: "group-motion" },
@@ -1392,7 +1392,7 @@ describe("strip motion marks from the command coordinator", () => {
       version: 2,
       items: [tabItem(refA), tabItem(refB)],
       activeItemId: tabItemId(refB),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         [tabRefKey(refA)]: { color: null, icon: "A", groupId: "group-kept" },
         [tabRefKey(refB)]: { color: null, icon: "B", groupId: "group-kept" },

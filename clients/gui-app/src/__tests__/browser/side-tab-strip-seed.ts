@@ -110,7 +110,7 @@ export function seedSideStripTabs(sessionTab: boolean): void {
     items,
     activeItemId: tabItemId(sessionTab ? SAMPLE_WORKSPACE_REF : epsilon),
     stripOrder: sessionTab ? [...refs, SAMPLE_WORKSPACE_REF] : refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: {
       [SEED_GROUP_ID]: organizationGroup({
         name: "Work",
@@ -289,7 +289,7 @@ export function seedSideStripSections(): void {
     items: refs.map(loneItem),
     activeItemId: tabItemId(gui),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: {
       [SEED_GROUP_ID]: organizationGroup({
         name: "Work",
@@ -358,7 +358,7 @@ export function seedSideStripIdleGroup(): void {
     items: refs.map(loneItem),
     activeItemId: tabItemId(gui),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: {
       [SEED_GROUP_ID]: organizationGroup({
         name: "group",
@@ -435,6 +435,7 @@ export function seedSideStripPairs(): void {
         lastPath: null,
       },
       settings: null,
+      todos: null,
     },
     groups: {},
     customizations: {},
@@ -663,7 +664,7 @@ export function seedSideStripLongList(): void {
     items: refs.map(loneItem),
     activeItemId: tabItemId(refs[4] ?? refs[0]),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     groups: {},
     customizations: {},
   });

@@ -23,12 +23,17 @@ import {
   homeTabIntent,
   openEpicTabIntent,
   settingsTabIntent,
+  todosTabIntent,
   type EpicPostResolvePreparation,
   type EpicRouteFocus,
   type TabActivationIntent,
   type TabNavigationIntent,
 } from "@/lib/tab-navigation/intents";
 import { parseNestedFocusTargetFromSearch } from "@/lib/epic-nested-focus-route";
+import {
+  isSystemTabKind,
+  type SystemTabKind,
+} from "@/stores/tabs/tab-kind-policy";
 import {
   commitWithoutNavigation,
   MANUAL_TILE_OPEN,
@@ -90,6 +95,7 @@ export {
   openPhaseMigrationIntent,
   resourceEpicTabIntent,
   settingsTabIntent,
+  todosTabIntent,
   type EpicPostResolvePreparation,
   type EpicRouteFocus,
   type TabActivationIntent,
@@ -233,6 +239,8 @@ interface CorrectionRequest {
 const HISTORY_ENVELOPE_KEY = "__traycerTabNavigation";
 const DEFAULT_HISTORY_TAB_NAME = "History";
 const DEFAULT_SETTINGS_TAB_NAME = "Settings";
+const DEFAULT_TODOS_TAB_NAME = "To-dos";
+const TODOS_PATH = "/todos";
 const SETTINGS_PATH_PREFIX = "/settings";
 const LEGACY_SERVICE_PATH = "/settings/service";
 
@@ -318,6 +326,8 @@ function intentRef(intent: TabNavigationIntent): TabRef {
       return TRACY_TAB_REF;
     case "history":
       return { kind: "history", id: "history" };
+    case "todos":
+      return { kind: "todos", id: "todos" };
     case "settings":
       return { kind: "settings", id: "settings" };
     case "sample-workspace":
@@ -458,6 +468,10 @@ function isHistoryPath(pathname: string): boolean {
   return pathname === "/epics" || pathname === "/epics/";
 }
 
+function isTodosPath(pathname: string): boolean {
+  return pathname === TODOS_PATH || pathname === `${TODOS_PATH}/`;
+}
+
 function isLandingPath(pathname: string): boolean {
   return pathname === "/" || pathname === "/onboarding";
 }
@@ -494,6 +508,9 @@ function routedTabTarget(pathname: string): RoutedTabTarget | null {
   }
   if (isHistoryPath(pathname)) {
     return { ref: { kind: "history", id: "history" }, epicId: null };
+  }
+  if (isTodosPath(pathname)) {
+    return { ref: { kind: "todos", id: "todos" }, epicId: null };
   }
   // Gated on the flag, so with Home off `/home` is an unroutable path that
   // corrects back to whatever the strip is showing - the same treatment any
@@ -541,6 +558,7 @@ function intentForRef(
       : null;
   }
   if (ref.kind === "history") return historyTabIntent();
+  if (ref.kind === "todos") return todosTabIntent();
   if (ref.kind === "sample-workspace") return { kind: "sample-workspace" };
   if (ref.kind === "home") return homeTabIntent();
   return settingsTabIntent(settingsSectionFromPath(pathname));
@@ -697,7 +715,7 @@ function switchesTracyChannel(intent: TabNavigationIntent): boolean {
 }
 
 function systemActivationTarget(
-  intent: Extract<TabNavigationIntent, { kind: "history" | "settings" }>,
+  intent: Extract<TabNavigationIntent, { kind: SystemTabKind }>,
 ): CoordinatedTabActivationTarget {
   if (intent.kind === "history") {
     return {
@@ -705,6 +723,14 @@ function systemActivationTarget(
       systemKind: "history",
       name: DEFAULT_HISTORY_TAB_NAME,
       lastPath: "/epics",
+    };
+  }
+  if (intent.kind === "todos") {
+    return {
+      kind: "system",
+      systemKind: "todos",
+      name: DEFAULT_TODOS_TAB_NAME,
+      lastPath: TODOS_PATH,
     };
   }
   return {
@@ -1233,7 +1259,11 @@ export class TabNavigationController {
         name: intent.name,
       };
     }
-    if (intent.kind === "history" || intent.kind === "settings") {
+    if (
+      intent.kind === "history" ||
+      intent.kind === "settings" ||
+      intent.kind === "todos"
+    ) {
       return systemActivationTarget(intent);
     }
     if (intent.kind === "home") return { kind: "home" };
@@ -1528,7 +1558,7 @@ export class TabNavigationController {
     const intent =
       intentForRef(ref, location.pathname, location.search) ?? pending.intent;
     if (intent !== null) this.rememberRoute(ref, intent, location.search);
-    if (ref.kind === "history" || ref.kind === "settings") {
+    if (isSystemTabKind(ref.kind)) {
       useTabsStore
         .getState()
         .rememberSystemTabPath(ref.kind, location.pathname);
@@ -1817,6 +1847,7 @@ export class TabNavigationController {
         return;
       case "history":
       case "settings":
+      case "todos":
         this.resolveExternalSystem(location, ref.kind, navigate);
         return;
       case "sample-workspace":
@@ -2038,14 +2069,11 @@ export class TabNavigationController {
 
   private resolveExternalSystem(
     location: TabNavigationLocation,
-    kind: "history" | "settings",
+    kind: SystemTabKind,
     navigate: NavigateFn,
   ): void {
     const ref: TabRef = { kind, id: kind };
-    const systemIntent =
-      kind === "history"
-        ? historyTabIntent()
-        : settingsTabIntent(settingsSectionFromPath(location.pathname));
+    const systemIntent = systemTabIntent(kind, location.pathname);
     const activation = this.activateExternalTarget(
       systemActivationTarget(systemIntent),
     );
@@ -2337,4 +2365,14 @@ export function tracyChannelNavigationPending(botId: string): boolean {
 
 export function tabNavigationResolutionFailed(state: unknown): boolean {
   return tabNavigationController.hasResolutionFailure(state);
+}
+
+/** The navigation intent for a system tab, reading Settings' section off its path. */
+function systemTabIntent(
+  kind: SystemTabKind,
+  pathname: string,
+): Extract<TabNavigationIntent, { kind: SystemTabKind }> {
+  if (kind === "history") return historyTabIntent();
+  if (kind === "todos") return todosTabIntent();
+  return settingsTabIntent(settingsSectionFromPath(pathname));
 }

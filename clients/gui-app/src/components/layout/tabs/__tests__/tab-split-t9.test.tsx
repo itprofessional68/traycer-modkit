@@ -47,7 +47,7 @@ function seedSplitLayout() {
     ],
     activeItemId: "split-a",
     stripOrder: [PARTNER, OPEN_DRAFT],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -90,7 +90,7 @@ describe("T9 split interactions", () => {
         },
       ],
       activeItemId: "split-target",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     };
     const fill = {
       kind: "top-level-fillable-slot" as const,
@@ -135,7 +135,7 @@ describe("T9 split interactions", () => {
         },
       ],
       activeItemId: "target-item",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     };
 
     expect(stripPairTargetForIndex(0, layout)).toEqual({
@@ -166,7 +166,7 @@ describe("T9 split interactions", () => {
       // Deliberately NOT the target: unlike an edge split, pairing is how you
       // combine with a tab you are not currently looking at.
       activeItemId: "source-item",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     };
     const pair = {
       kind: "top-level-strip-pair" as const,
@@ -332,7 +332,7 @@ describe("T9 split interactions", () => {
       ],
       activeItemId: "tab:draft:focused",
       stripOrder: [focused, background],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     expect(resolveTabSplitCommandAvailability(background).add).toBe(false);

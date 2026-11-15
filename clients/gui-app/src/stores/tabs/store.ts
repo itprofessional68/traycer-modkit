@@ -14,7 +14,9 @@ import {
 import { basePersistOptions, persistKey, STORE_KEYS } from "@/lib/persist";
 import {
   isRegisteredTabKind,
+  isSystemTabKind,
   TAB_KIND_SPLIT_ELIGIBILITY,
+  type SystemTabKind,
 } from "@/stores/tabs/tab-kind-policy";
 import { SETTINGS_PATHS } from "@/stores/tabs/settings-paths";
 import {
@@ -85,15 +87,12 @@ export interface TabsStoreState extends PersistedTabsStoreState {
   setStripOrder: (refs: ReadonlyArray<TabRef>) => void;
   moveRef: (ref: TabRef, targetIndex: number) => void;
   openSystemTab: (input: {
-    readonly kind: "history" | "settings";
+    readonly kind: SystemTabKind;
     readonly name: string;
     readonly lastPath: string | null;
   }) => void;
-  rememberSystemTabPath: (
-    kind: "history" | "settings",
-    path: string | null,
-  ) => void;
-  closeSystemTab: (kind: "history" | "settings") => void;
+  rememberSystemTabPath: (kind: SystemTabKind, path: string | null) => void;
+  closeSystemTab: (kind: SystemTabKind) => void;
   pair: (args: PairLayoutArgs) => void;
   createEmptySplit: (args: CreateEmptySplitArgs) => void;
   replaceFillableSide: (args: ReplaceFillableSideArgs) => void;
@@ -376,9 +375,13 @@ function parseTabRef(value: unknown): ReadonlyArray<TabRef> {
   // (`collapseTracyRefs` keeps one).
   if (value.kind === "bot") return [{ kind: "tracy", id: "tracy" }];
   if (!isRegisteredTabKind(value.kind)) return [];
-  if (value.kind === "tracy" && value.id !== "tracy") return [];
-  if (value.kind === "history" && value.id !== "history") return [];
-  if (value.kind === "settings" && value.id !== "settings") return [];
+  // One tab per window: its id is its kind.
+  if (
+    (value.kind === "tracy" || isSystemTabKind(value.kind)) &&
+    value.id !== value.kind
+  ) {
+    return [];
+  }
   // Home is never persisted as a strip ref; `repairLayout` would drop one
   // anyway, but refusing it here keeps the parsed layout honest.
   if (value.kind === "home" || value.kind === "sample-workspace") return [];
@@ -445,6 +448,7 @@ function parseSystemTabs(value: unknown): SystemTabs {
   return {
     history: parseSystemTab(value.history, "history"),
     settings: parseSystemTab(value.settings, "settings"),
+    todos: parseSystemTab(value.todos, "todos"),
   };
 }
 
@@ -455,7 +459,7 @@ function firstOrNull<T>(values: ReadonlyArray<T>): T | null {
 
 function parseSystemTab(
   value: unknown,
-  kind: "history" | "settings",
+  kind: SystemTab["kind"],
 ): SystemTab | null {
   if (!isRecord(value)) return null;
   if (
@@ -470,7 +474,7 @@ function parseSystemTab(
 }
 
 function isValidSystemTabPath(
-  kind: "history" | "settings",
+  kind: SystemTab["kind"],
   path: string | null,
 ): boolean {
   if (path === null) return true;
@@ -479,6 +483,9 @@ function isValidSystemTabPath(
   const pathname = queryIndex === -1 ? path : path.slice(0, queryIndex);
   if (kind === "history") {
     return pathname === "/epics" || pathname === "/epics/";
+  }
+  if (kind === "todos") {
+    return pathname === "/todos" || pathname === "/todos/";
   }
   if (pathname === "/settings" || pathname === "/settings/") return true;
   if (!pathname.startsWith("/settings/")) return false;

@@ -95,9 +95,13 @@ function isPaletteEligible(
   return true;
 }
 
-/** Former names a person may still type: the strip's drawer was "Inbox". */
+/**
+ * Other names a person may type: the strip's drawer was "Inbox", and a
+ * To-do is a ticket everywhere else in the app.
+ */
 const ACTION_SYNONYMS: Partial<Record<ActionId, ReadonlyArray<string>>> = {
   "app.notifications.open": ["inbox"],
+  "app.todos.open": ["tickets"],
 };
 
 function buildActionItem(

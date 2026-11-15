@@ -52,7 +52,7 @@ function layoutForRefs(refs: ReadonlyArray<TabRef>): PersistedTabStripLayout {
     version: 2,
     items: refs.map((ref) => ({ kind: "tab", id: tabItemId(ref), ref })),
     activeItemId: first === undefined ? null : tabItemId(first),
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     activationHistory: [],
   };
 }

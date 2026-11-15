@@ -176,7 +176,7 @@ function seedTwoTabs(): void {
       })),
       activeItemId: itemIdOf(ACTIVE),
       stripOrder: [ACTIVE, INACTIVE],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 }
@@ -225,6 +225,7 @@ function seedActiveSplit(left: SplitSide, right: SplitSide): void {
           ? HISTORY_SYSTEM_TAB
           : null,
         settings: null,
+        todos: null,
       },
     });
   });

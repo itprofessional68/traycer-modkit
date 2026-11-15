@@ -250,7 +250,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useSettingsStore.setState({ theme: "light", themePreset: "neutral" });
   useThemeLibraryStore.setState({

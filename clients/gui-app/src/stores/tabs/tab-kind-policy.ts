@@ -1,4 +1,5 @@
 import type { HeaderTabKind } from "@/stores/tabs/registry";
+import type { SystemTab } from "@/stores/tabs/types";
 
 /**
  * The per-kind facts the tab STORES need, as plain data below the registry.
@@ -16,6 +17,7 @@ export const TAB_KIND_SPLIT_ELIGIBILITY = {
   draft: "eligible",
   tracy: "eligible",
   history: "eligible",
+  todos: "eligible",
   settings: "eligible",
   home: "ineligible",
   "sample-workspace": "ineligible",
@@ -32,4 +34,11 @@ export const TAB_KIND_SPLIT_ELIGIBILITY = {
  */
 export function isRegisteredTabKind(kind: string): kind is HeaderTabKind {
   return Object.hasOwn(TAB_KIND_SPLIT_ELIGIBILITY, kind);
+}
+
+/** The kinds held as `systemTabs` records rather than in a source store. */
+export type SystemTabKind = SystemTab["kind"];
+
+export function isSystemTabKind(kind: HeaderTabKind): kind is SystemTabKind {
+  return kind === "history" || kind === "settings" || kind === "todos";
 }

@@ -412,7 +412,7 @@ describe("<EpicRootDragOverlayContent />", () => {
         ],
         activeItemId: "split-1",
         stripOrder: right.kind === "tab" ? [LEFT, RIGHT] : [LEFT],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
     }
 
@@ -833,7 +833,7 @@ describe("<EpicRootDragOverlayContent />", () => {
         ],
         activeItemId: "tab:epic:epic-solo",
         stripOrder: [{ kind: "epic", id: "epic-solo" }],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       useEpicDndStore.getState().headerTabDragStarted(
         {
@@ -892,7 +892,7 @@ describe("<EpicRootDragOverlayContent />", () => {
         ],
         activeItemId: "tab:epic:epic-other",
         stripOrder: [LEFT, RIGHT, OTHER],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       useEpicDndStore.getState().headerTabDragStarted(
         {
@@ -1148,7 +1148,7 @@ describe("<EpicRootDragOverlayContent />", () => {
             ],
             activeItemId: `tab:epic:${EPIC_ID}`,
             stripOrder: [{ kind: "epic", id: EPIC_ID }],
-            systemTabs: { history: null, settings: null },
+            systemTabs: { history: null, settings: null, todos: null },
           });
         },
       },
@@ -1178,7 +1178,7 @@ describe("<EpicRootDragOverlayContent />", () => {
               { kind: "epic", id: EPIC_ID },
               { kind: "epic", id: PARTNER_ID },
             ],
-            systemTabs: { history: null, settings: null },
+            systemTabs: { history: null, settings: null, todos: null },
           });
         },
       },

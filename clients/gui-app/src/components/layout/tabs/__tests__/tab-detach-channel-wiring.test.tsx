@@ -206,7 +206,7 @@ function seedHeaderProjection(): void {
       ],
       activeItemId: `tab:epic:${EPIC_TAB.id}`,
       stripOrder: [ref, neighbourRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 }

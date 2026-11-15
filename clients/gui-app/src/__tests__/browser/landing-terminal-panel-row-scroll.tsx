@@ -138,7 +138,7 @@ function seedStartPages(): ReadonlyArray<string> {
     })),
     activeItemId: tabItemId({ kind: "draft", id: draftIds[0] }),
     activationHistory: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   };
   useTabsStore.setState((state) => ({
     ...state,

@@ -39,7 +39,7 @@ describe("draft entry routes", () => {
     useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
     useTabsStore.setState({
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     // Default to "tour completed" so signed-in cases exercise the app path;
     // the first-launch case overrides this explicitly.
@@ -68,6 +68,7 @@ describe("draft entry routes", () => {
           lastPath: null,
         },
         settings: null,
+        todos: null,
       },
     });
     expect(invokeIndexBeforeLoad("signed-in")).toBeNull();
@@ -121,6 +122,7 @@ describe("draft entry routes", () => {
           lastPath: null,
         },
         settings: null,
+        todos: null,
       },
     });
     expect(invokeIndexBeforeLoad("unverified")).toBeNull();

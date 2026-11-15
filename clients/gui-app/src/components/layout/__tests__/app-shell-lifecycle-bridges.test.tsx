@@ -201,6 +201,7 @@ const NOOP_ROUTER: KeybindingRouter = {
   navigateToEpic: () => undefined,
   navigateToEpicTab: () => undefined,
   navigateToEpicList: () => undefined,
+  navigateToTodos: () => undefined,
   navigateSettingsSection: () => undefined,
   navigateToTabIntent: () => undefined,
   goBack: () => undefined,
@@ -968,6 +969,7 @@ describe("<AppShell />", () => {
             lastPath: null,
           },
           settings: null,
+          todos: null,
         },
       }));
 

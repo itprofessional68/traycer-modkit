@@ -125,7 +125,7 @@ function seedTabs(): void {
     items: REFS.map((ref) => ({ kind: "tab", id: tabItemId(ref), ref })),
     activeItemId: tabItemId(ALPHA),
     stripOrder: REFS,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -148,7 +148,7 @@ function seedTabsWithInactiveSplit(): void {
     ],
     activeItemId: tabItemId(ALPHA),
     stripOrder: [ALPHA, GAMMA, DELTA],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

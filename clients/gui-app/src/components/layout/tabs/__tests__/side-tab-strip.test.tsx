@@ -308,6 +308,7 @@ const NOOP_ROUTER: KeybindingRouter = {
   navigateToEpic: () => undefined,
   navigateToEpicTab: () => undefined,
   navigateToEpicList: () => undefined,
+  navigateToTodos: () => undefined,
   navigateSettingsSection: () => undefined,
   navigateToTabIntent: () => undefined,
   goBack: () => undefined,
@@ -501,7 +502,7 @@ function openEpicTabs(names: ReadonlyArray<string>): ReadonlyArray<TabRef> {
     items: refs.map((ref) => ({ kind: "tab", id: tabItemId(ref), ref })),
     activeItemId: firstRef === undefined ? null : tabItemId(firstRef),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return refs;
 }
@@ -522,6 +523,7 @@ function openHistoryTab(): void {
         lastPath: null,
       },
       settings: null,
+      todos: null,
     },
   });
 }
@@ -542,6 +544,7 @@ function openSettingsTab(): void {
         name: "Settings",
         lastPath: null,
       },
+      todos: null,
     },
   });
 }
@@ -555,7 +558,7 @@ function openDraftTab(): string {
     items: [{ kind: "tab", id: tabItemId(ref), ref }],
     activeItemId: tabItemId(ref),
     stripOrder: [ref],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return draftId;
 }
@@ -594,7 +597,7 @@ function openSplitPair(focusedSide: "left" | "right"): void {
     ],
     activeItemId: "split-a",
     stripOrder: [left, right],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -643,7 +646,7 @@ function openGroupWithTabAndSplit(): void {
     ],
     activeItemId: tabItemId(four),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     // The account's group: the strip draws no other kind.
     groups: {
       g: {
@@ -3218,7 +3221,7 @@ describe("<SideTabStrip />", () => {
         })),
         activeItemId: tabItemId(sample),
         stripOrder: [real, sample],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       render(
         <SampleSceneContext.Provider value>

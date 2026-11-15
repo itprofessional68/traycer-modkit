@@ -142,7 +142,7 @@ function seedTabs(
     })),
     activeItemId: `tab:epic:${activeTabId}`,
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -167,7 +167,7 @@ function seedSplitOfEpics(
     ],
     activeItemId: "split-shared",
     stripOrder: [left, right],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

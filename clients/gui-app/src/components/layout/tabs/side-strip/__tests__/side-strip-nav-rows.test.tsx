@@ -253,7 +253,7 @@ function openEpicTabs(names: ReadonlyArray<string>): void {
     items: refs.map((ref) => ({ kind: "tab", id: tabItemId(ref), ref })),
     activeItemId: firstRef === undefined ? null : tabItemId(firstRef),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

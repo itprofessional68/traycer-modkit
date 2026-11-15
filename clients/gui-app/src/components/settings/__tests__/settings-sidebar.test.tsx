@@ -235,7 +235,7 @@ describe("<SettingsSidebar /> leader hints", () => {
       items: [],
       activeItemId: null,
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     useTabsStore.getState().openSystemTab({
       kind: "settings",

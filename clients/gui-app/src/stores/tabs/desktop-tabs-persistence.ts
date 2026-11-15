@@ -28,7 +28,11 @@ import {
   setTabsLocalPersistenceEnabled,
   useTabsStore,
 } from "@/stores/tabs/store";
-import { isRegisteredTabKind } from "@/stores/tabs/tab-kind-policy";
+import {
+  isRegisteredTabKind,
+  isSystemTabKind,
+  type SystemTabKind,
+} from "@/stores/tabs/tab-kind-policy";
 import { homeRoutePath, isHomePath } from "@/stores/tabs/kinds/home";
 import { SETTINGS_PATHS } from "@/stores/tabs/settings-paths";
 import { setTabSplitCompatibility } from "@/stores/tabs/tab-split-compatibility";
@@ -563,7 +567,7 @@ function refIsRestorable(
   systemTabs: PersistedTabStripLayout["systemTabs"],
 ): boolean {
   if (ref.kind === "sample-workspace") return false;
-  if (ref.kind === "history" || ref.kind === "settings") {
+  if (isSystemTabKind(ref.kind)) {
     return systemTabs[ref.kind] !== null;
   }
   return tabSourceRefs().some((source) => refKey(source) === refKey(ref));
@@ -594,13 +598,11 @@ function routeForRef(layout: PersistedTabStripLayout, ref: TabRef): string {
   const lastPath = layout.systemTabs[ref.kind]?.lastPath ?? null;
   if (
     lastPath !== null &&
-    (ref.kind === "history"
-      ? isHistoryRoutePath(routePath(lastPath))
-      : isSettingsRoutePath(routePath(lastPath)))
+    isSystemTabRoutePath(ref.kind, routePath(lastPath))
   ) {
     return lastPath;
   }
-  return ref.kind === "history" ? "/epics" : "/settings";
+  return SYSTEM_TAB_DEFAULT_ROUTE[ref.kind];
 }
 
 function routeRef(route: string | null): TabRef | null {
@@ -608,12 +610,8 @@ function routeRef(route: string | null): TabRef | null {
   const pathname = routePath(route);
   if (pathname === "/sample-workspace")
     return { kind: "sample-workspace", id: "sample-workspace" };
-  if (pathname === "/epics" || pathname === "/epics/") {
-    return { kind: "history", id: "history" };
-  }
-  if (isSettingsRoutePath(pathname)) {
-    return { kind: "settings", id: "settings" };
-  }
+  const systemKind = systemTabKindForPath(pathname);
+  if (systemKind !== null) return { kind: systemKind, id: systemKind };
   const epicMatch = pathname?.match(/^\/epics\/([^/]+)\/([^/]+)\/?$/);
   if (epicMatch !== null && epicMatch !== undefined) {
     const tabId = decodeRouteSegment(epicMatch[2]);
@@ -643,6 +641,7 @@ function routeMatchesHydratedRef(route: string, ref: TabRef): boolean {
   if (ref.kind === "tracy") return isTracyPath(pathname);
   if (ref.kind === "history")
     return pathname === "/epics" || pathname === "/epics/";
+  if (ref.kind === "todos") return isTodosRoutePath(pathname);
   return isSettingsRoutePath(pathname);
 }
 
@@ -662,6 +661,33 @@ function routePath(route: string | null): string | null {
 
 function isHistoryRoutePath(pathname: string | null): boolean {
   return pathname === "/epics" || pathname === "/epics/";
+}
+
+/** The system tab a route belongs to, or `null` for any other route. */
+function systemTabKindForPath(pathname: string | null): SystemTabKind | null {
+  if (isHistoryRoutePath(pathname)) return "history";
+  if (isTodosRoutePath(pathname)) return "todos";
+  if (isSettingsRoutePath(pathname)) return "settings";
+  return null;
+}
+
+function isTodosRoutePath(pathname: string | null): boolean {
+  return pathname === "/todos" || pathname === "/todos/";
+}
+
+const SYSTEM_TAB_DEFAULT_ROUTE: Readonly<Record<SystemTabKind, string>> = {
+  history: "/epics",
+  settings: "/settings",
+  todos: "/todos",
+};
+
+function isSystemTabRoutePath(
+  kind: SystemTabKind,
+  pathname: string | null,
+): boolean {
+  if (kind === "history") return isHistoryRoutePath(pathname);
+  if (kind === "todos") return isTodosRoutePath(pathname);
+  return isSettingsRoutePath(pathname);
 }
 
 function isSettingsRoutePath(pathname: string | null): boolean {
@@ -705,6 +731,7 @@ function desktopLayoutJson(layout: PersistedTabStripLayout): DesktopJsonValue {
     systemTabs: {
       history: desktopSystemTabJson(layout.systemTabs.history),
       settings: desktopSystemTabJson(layout.systemTabs.settings),
+      todos: desktopSystemTabJson(layout.systemTabs.todos),
     },
   };
 }

@@ -192,7 +192,7 @@ function openEpicTab(id: string): void {
     items: [{ kind: "tab", id: tabItemId(ref), ref }],
     activeItemId: tabItemId(ref),
     stripOrder: [ref],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 

@@ -214,7 +214,7 @@ function seedCanvasTearOffLayout(): EpicCanvasArtifactTabDragData {
     ],
     activeItemId: SPLIT_ID,
     stripOrder: [SOURCE, TARGET, UNRELATED],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return dragData;
 }
@@ -321,7 +321,7 @@ describe("T9 round-4: RootDndProvider real wiring", () => {
         })),
         activeItemId: tabItemId(TARGET),
         stripOrder: [TRACY, TARGET, UNRELATED],
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       const router = buildRouterWithHarness(
         `/epics/target-epic/${TARGET.id}`,

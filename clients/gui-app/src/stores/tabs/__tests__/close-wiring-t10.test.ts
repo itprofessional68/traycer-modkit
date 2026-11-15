@@ -83,7 +83,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
       ],
       activeItemId: "split-1",
       stripOrder: [a, b],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const tabA = getHeaderTabs().find((tab) => tab.id === "tab-a");
@@ -117,7 +117,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
       ],
       activeItemId: "tab:epic:tab-a",
       stripOrder: [a, b],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const tabB = getHeaderTabs().find((tab) => tab.id === "tab-b");
@@ -157,7 +157,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
       ],
       activeItemId: "split-1",
       stripOrder: [a, c],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const tabA = getHeaderTabs().find((tab) => tab.id === "tab-a");
@@ -180,7 +180,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
       items: [{ kind: "tab", id: "tab:draft:draft-a", ref: draftRef }],
       activeItemId: "tab:draft:draft-a",
       stripOrder: [draftRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const draftTab = getHeaderTabs().find((tab) => tab.id === "draft-a");
@@ -209,7 +209,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
       items: [{ kind: "tab", id: "tab:draft:draft-a", ref: draftRef }],
       activeItemId: "tab:draft:draft-a",
       stripOrder: [draftRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const draftTab = getHeaderTabs().find((tab) => tab.id === "draft-a");
@@ -238,6 +238,7 @@ describe("T10 Area 1: requestClose routes through the coordinator", () => {
           lastPath: null,
         },
         settings: null,
+        todos: null,
       },
     });
 

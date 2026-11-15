@@ -195,7 +195,7 @@ function resetStores(): void {
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useTabRecoveryHistory.setState({ entries: [], ready: true });
   mockUnsynced.epicIds.clear();
@@ -234,7 +234,7 @@ function seedGroupedTabs() {
     })),
     activeItemId: tabItemId(refA),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     customizations: {
       [tabRefKey(refA)]: { color: null, icon: null, groupId: "group-a" },
       [tabRefKey(refB)]: { color: null, icon: null, groupId: "group-a" },
@@ -546,7 +546,7 @@ describe("useCloseTabFlow", () => {
         { kind: "epic", id: b },
         { kind: "epic", id: c },
       ],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const spy = vi.spyOn(TabNav, "navigateToTabIntent").mockReturnValue();
     const { result } = renderHook(() => useCloseTabFlow());
@@ -1201,7 +1201,7 @@ describe("useCloseTabFlow", () => {
         })),
         activeItemId: tabItemId(refs[0]),
         stripOrder: refs,
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       routerState.pathname = `/epics/epic-x/${keptTab}`;
       organizationState.setView(

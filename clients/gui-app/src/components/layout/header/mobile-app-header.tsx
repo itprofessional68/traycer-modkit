@@ -207,6 +207,7 @@ function MobileHeaderTitleSlot(props: MobileHeaderTitleSlotProps): ReactNode {
 type MobileHeaderSurface =
   | { readonly kind: "epic"; readonly tabId: string }
   | { readonly kind: "history" }
+  | { readonly kind: "todos" }
   | { readonly kind: "home" }
   | { readonly kind: "settings"; readonly path: string | null }
   | { readonly kind: "composer" }
@@ -218,6 +219,7 @@ type MobileHeaderSurface =
 const COMPOSER_SURFACE: MobileHeaderSurface = { kind: "composer" };
 const BOT_SURFACE: MobileHeaderSurface = { kind: "bot" };
 const HISTORY_SURFACE: MobileHeaderSurface = { kind: "history" };
+const TODOS_SURFACE: MobileHeaderSurface = { kind: "todos" };
 const HOME_SURFACE: MobileHeaderSurface = { kind: "home" };
 
 /**
@@ -251,6 +253,8 @@ function useMobileHeaderSurface(): MobileHeaderSurface {
           return { kind: "epic", tabId: focused.id };
         case "history":
           return HISTORY_SURFACE;
+        case "todos":
+          return TODOS_SURFACE;
         // Unreachable: Home is never a strip ref, so `selectHostFocusedRef`
         // cannot answer with one. Present for the exhaustive switch.
         case "home":
@@ -326,6 +330,7 @@ function useMobileHeaderTitle(
   if (surface.kind === "epic") return firstResolvedTitle(liveTitle, tabName);
   if (surface.kind === "settings") return "Settings";
   if (surface.kind === "history") return "History";
+  if (surface.kind === "todos") return "To-dos";
   if (surface.kind === "home") return "Home";
   // Titles name a place you navigated TO. The composer surfaces - landing and
   // drafts - are where you already are, and each one opens with a hero greeting

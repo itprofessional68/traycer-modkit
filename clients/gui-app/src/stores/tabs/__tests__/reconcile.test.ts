@@ -25,7 +25,7 @@ const HYDRATED_REF: TabRef = { kind: "epic", id: "hydrated-tab" };
 function resetStores(): void {
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -44,7 +44,7 @@ describe("tabs-store reconciliation hydration gate", () => {
   it("preserves persisted strip refs while the gate is closed even if source stores are empty", async () => {
     useTabsStore.setState({
       stripOrder: [PERSISTED_REF],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     let resolveReady: () => void = () => undefined;
@@ -98,7 +98,7 @@ describe("tabs-store reconciliation hydration gate", () => {
     installTabSyncCoordinator({ readyPromise });
     useTabsStore.setState({
       stripOrder: [{ kind: "epic", id: "stale" }],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     resolveReady();

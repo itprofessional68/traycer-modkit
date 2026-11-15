@@ -216,7 +216,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -279,7 +279,7 @@ describe("F2: destructive empty-draft -> epic swap in a split", () => {
         },
       ],
       activeItemId: splitId,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     return { draftId, draftRef, companion, splitId };
   }

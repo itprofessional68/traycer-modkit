@@ -178,7 +178,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -357,7 +357,7 @@ describe("tab command coordinator transactions", () => {
         },
       ],
       activeItemId: "split-fill",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const session = captureSession();
@@ -735,7 +735,7 @@ describe("tab command coordinator transactions", () => {
         },
       ],
       activeItemId: "split-existing",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const session = captureSession();
@@ -792,7 +792,7 @@ describe("tab command coordinator transactions", () => {
         },
       ],
       activeItemId: "split-existing",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const layoutBefore = layoutFromTabsState();
 

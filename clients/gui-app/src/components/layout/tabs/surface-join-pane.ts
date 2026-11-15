@@ -71,6 +71,7 @@ export function surfaceJoinPane(
       return edge === "left" ? "panel" : "canvas";
     case "home":
     case "history":
+    case "todos":
     case "sample-workspace":
       return "canvas";
   }

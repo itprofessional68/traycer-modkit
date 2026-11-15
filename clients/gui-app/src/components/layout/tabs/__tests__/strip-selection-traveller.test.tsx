@@ -107,7 +107,7 @@ function seedStrip(refs: ReadonlyArray<TabRef>): ReadonlyArray<StripItem> {
       items: [...items],
       activeItemId: items[0].id,
       stripOrder: [...refs],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
   return items;

@@ -546,7 +546,7 @@ describe("openChatDraftRow navigates to the chat's epic, not just its canvas", (
       items: [],
       activeItemId: null,
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
     __resetTabSyncCoordinatorForTesting();
@@ -627,7 +627,7 @@ describe("openNewChatDraftRow requires the row's owner host (review finding 3)",
       items: [],
       activeItemId: null,
       stripOrder: [],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
     __resetTabSyncCoordinatorForTesting();

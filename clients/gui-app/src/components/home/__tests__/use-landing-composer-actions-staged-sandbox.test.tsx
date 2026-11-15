@@ -533,7 +533,7 @@ describe("useLandingComposerActions.startTaskOnStagedSandbox", () => {
     useTabsStore.setState({
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [],
     });
     useEpicCanvasStore.setState({
@@ -572,7 +572,7 @@ describe("useLandingComposerActions.startTaskOnStagedSandbox", () => {
     useTabsStore.setState({
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       stripOrder: [],
     });
     useEpicCanvasStore.setState({

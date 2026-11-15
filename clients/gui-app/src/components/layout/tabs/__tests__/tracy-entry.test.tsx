@@ -464,7 +464,7 @@ function openEpicTabs(names: ReadonlyArray<string>): ReadonlyArray<TabRef> {
     items: refs.map((ref) => ({ kind: "tab", id: tabItemId(ref), ref })),
     activeItemId: first === undefined ? null : tabItemId(first),
     stripOrder: refs,
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   return refs;
 }
@@ -1358,6 +1358,7 @@ describe("the fixed Tracy entry - Alt-digit", () => {
       navigateToEpic: () => undefined,
       navigateToEpicTab: () => undefined,
       navigateToEpicList: () => undefined,
+      navigateToTodos: () => undefined,
       navigateSettingsSection: () => undefined,
       navigateToTabIntent: (intent) => {
         intents.push(intent);

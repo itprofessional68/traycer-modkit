@@ -61,7 +61,7 @@ function resetStores(): void {
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
   useTabsStore.setState({
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   TabNav.__resetTabNavigationControllerForTesting();
 }
@@ -110,6 +110,7 @@ function buildRecordingRouter(initialPath: string): RecordedRouter {
     navigateToEpic: () => undefined,
     navigateToEpicTab: () => undefined,
     navigateToEpicList: () => undefined,
+    navigateToTodos: () => undefined,
     navigateSettingsSection: () => undefined,
     navigateToTabIntent: (intent) => {
       intents.push(intent);
@@ -182,7 +183,7 @@ describe("tab navigation single-path contract", () => {
     const tabId = useEpicCanvasStore.getState().openEpicTab("epic-2", "Beta");
     useTabsStore.setState({
       stripOrder: [{ kind: "epic", id: tabId }],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const recorded = buildRecordingRouter("/epics/other/other-tab");
 
@@ -201,7 +202,7 @@ describe("tab navigation single-path contract", () => {
     const draftId = useLandingDraftStore.getState().createDraft(null);
     useTabsStore.setState({
       stripOrder: [{ kind: "draft", id: draftId }],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const recorded = buildRecordingRouter("/epics/foo/foo-tab");
 
@@ -218,7 +219,7 @@ describe("tab navigation single-path contract", () => {
     const tabId = useEpicCanvasStore.getState().openEpicTab("epic-3", "Gamma");
     useTabsStore.setState({
       stripOrder: [{ kind: "epic", id: tabId }],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const seamSpy = vi.spyOn(TabNav, "navigateToTabIntent").mockReturnValue();
     const recorded = buildRecordingRouter("/");
@@ -250,7 +251,7 @@ describe("tab navigation single-path contract", () => {
       ],
       activeItemId: "split-empty",
       stripOrder: [epicRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const recorded = buildRecordingRouter(`/epics/epic-4/${tabId}`);
 
@@ -286,7 +287,7 @@ describe("tab navigation single-path contract", () => {
       ],
       activeItemId: "split-empty",
       stripOrder: [refA, refB],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const recorded = buildRecordingRouter(`/epics/epic-a/${a}`);
 
@@ -319,7 +320,7 @@ describe("tab navigation single-path contract", () => {
       ],
       activeItemId: "split-empty",
       stripOrder: [epicRef],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const recorded = buildRecordingRouter(`/epics/epic-5/${tabId}`);
     const closeSpy = vi.spyOn(useEpicCanvasStore.getState(), "closeTab");

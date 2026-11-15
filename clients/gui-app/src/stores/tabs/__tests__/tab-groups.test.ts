@@ -26,7 +26,7 @@ function layout(
       { kind: "tab", id: tabItemId(c), ref: c },
     ],
     activeItemId: tabItemId(a),
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
     ...overrides,
   };
 }

@@ -113,7 +113,7 @@ function seedSplitLayout(includeReusable: boolean) {
     ],
     activeItemId: "split-a",
     stripOrder: includeReusable ? [PARTNER, REUSABLE] : [PARTNER],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -148,7 +148,7 @@ function seedStartPageLayoutWithStaleLegacyOrder() {
     // Reproduces the live regression: the grouped header is authoritative and
     // visible while the legacy flattened projection has not caught up.
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
@@ -326,7 +326,7 @@ describe("SplitSlotChooserContent grouped destinations", () => {
       ],
       activeItemId: "split-a",
       stripOrder: [SPLIT_START_PAGE],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     setTabSplitCompatibility(false);
     await renderChooser({

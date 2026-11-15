@@ -321,7 +321,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -352,7 +352,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const nav = makeDeferredNavigate();
@@ -404,7 +404,7 @@ describe("TabNavigationController envelope lifecycle", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -457,7 +457,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -506,7 +506,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -539,7 +539,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -598,7 +598,7 @@ describe("TabNavigationController envelope lifecycle", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const priorSelection = activeSelection();
@@ -624,7 +624,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(c.ref), ref: c.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -654,7 +654,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         },
       ],
       activeItemId: "split-ab",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -744,7 +744,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -775,7 +775,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -829,7 +829,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const diagnostics = getTabNavigationDiagnostics();
@@ -867,7 +867,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -908,7 +908,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -962,7 +962,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1007,7 +1007,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1097,7 +1097,7 @@ describe("TabNavigationController envelope lifecycle", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(prior.ref), ref: prior.ref }],
       activeItemId: tabItemId(prior.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1130,7 +1130,7 @@ describe("TabNavigationController envelope lifecycle", () => {
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1194,7 +1194,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1252,7 +1252,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1312,7 +1312,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1372,7 +1372,7 @@ describe("TabNavigationController envelope lifecycle", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1513,7 +1513,7 @@ describe("empty focus / startup preservation", () => {
           },
         ],
         activeItemId: "split-empty",
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       const nav = makeDeferredNavigate();
 
@@ -1540,7 +1540,7 @@ describe("empty focus / startup preservation", () => {
           },
         ],
         activeItemId: "split-empty",
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
       });
       expect(activeSplitFocusedSide()).toBe("right");
 
@@ -1574,7 +1574,7 @@ describe("empty focus / startup preservation", () => {
         },
       ],
       activeItemId: "split-empty",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     // Seed currentLocation via a prior observe, then re-assert empty focus
@@ -1602,7 +1602,7 @@ describe("empty focus / startup preservation", () => {
         },
       ],
       activeItemId: "split-empty",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     expect(activeSplitFocusedSide()).toBe("right");
 
@@ -1628,7 +1628,7 @@ describe("empty focus / startup preservation", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: "split-empty",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1659,7 +1659,7 @@ describe("empty focus / startup preservation", () => {
         },
       ],
       activeItemId: "split-empty",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     // A bridge (re)mount replays the current committed location as a startup
     // sync; because that location still backs the empty side's member, saved
@@ -1706,7 +1706,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         },
       ],
       activeItemId: "split-ab",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1726,7 +1726,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1745,7 +1745,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const onRejected = vi.fn();
@@ -1799,7 +1799,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     __resetTabNavigationHydrationForTesting();
     const nav = makeDeferredNavigate();
@@ -1837,7 +1837,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const onRejected = vi.fn();
@@ -1871,7 +1871,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const onRejected = vi.fn();
@@ -1905,7 +1905,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     const onRejected = vi.fn();
@@ -1942,7 +1942,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1976,7 +1976,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -2001,7 +2001,7 @@ describe("activateTabIntent / navigateToTabIntent seam", () => {
         },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 

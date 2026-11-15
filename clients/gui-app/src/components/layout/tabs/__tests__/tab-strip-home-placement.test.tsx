@@ -230,7 +230,7 @@ describe("<TabStrip /> - Home placement", () => {
       items: [{ kind: "tab", id: tabItemId(refA), ref: refA }],
       activeItemId: tabItemId(refA),
       stripOrder: [refA],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter("/epics/e-a/e-a");
     render(<RouterProvider router={router} />);
@@ -276,7 +276,7 @@ describe("<TabStrip /> - Home placement", () => {
       items: [{ kind: "tab", id: tabItemId(refA), ref: refA }],
       activeItemId: tabItemId(refA),
       stripOrder: [refA],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter("/epics/e-a/e-a");
     render(<RouterProvider router={router} />);
@@ -299,7 +299,7 @@ describe("<TabStrip /> - Home placement", () => {
       ],
       activeItemId: tabItemId(refEpic),
       stripOrder: [refEpic, refDraft],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter("/epics/e-a/e-a");
     render(<RouterProvider router={router} />);
@@ -332,7 +332,7 @@ describe("<TabStrip /> - Home placement", () => {
       ],
       activeItemId: tabItemId(refEpic),
       stripOrder: [refEpic, refDraft],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       // The account's group: only a stamped one is drawn (`drawnTabGroup`).
       groups: {
         g1: {
@@ -375,7 +375,7 @@ describe("<TabStrip /> - Home placement", () => {
       items: [{ kind: "tab", id: tabItemId(refEpic), ref: refEpic }],
       activeItemId: tabItemId(refEpic),
       stripOrder: [refEpic],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const router = buildRouter("/epics/e-a/e-a");
     render(<RouterProvider router={router} />);
@@ -407,7 +407,7 @@ describe("<TabStrip /> - Home placement", () => {
       items: [{ kind: "tab", id: tabItemId(refEpic), ref: refEpic }],
       activeItemId: tabItemId(refEpic),
       stripOrder: [refEpic],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       customizations: {
         "epic:e-a": { groupId: null, color: "#ff0000", icon: null },
       },

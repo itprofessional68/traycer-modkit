@@ -497,6 +497,7 @@ function seedSources(refs: ReadonlyArray<TabRef>): void {
             lastPath: null,
           }
         : null,
+      todos: null,
     },
   }));
 }

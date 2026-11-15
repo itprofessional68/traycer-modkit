@@ -24,6 +24,7 @@ function noopRouter(): KeybindingRouter {
     navigateToEpic: () => undefined,
     navigateToEpicTab: () => undefined,
     navigateToEpicList: () => undefined,
+    navigateToTodos: () => undefined,
     navigateSettingsSection: () => undefined,
     navigateToTabIntent: () => undefined,
     goBack: () => undefined,

@@ -607,6 +607,8 @@ function TabSurface(props: { readonly tab: HeaderTab }): ReactNode {
       return tabSurfaceDescriptor("tracy").render(props.tab);
     case "history":
       return tabSurfaceDescriptor("history").render(props.tab);
+    case "todos":
+      return tabSurfaceDescriptor("todos").render(props.tab);
     case "settings":
       return tabSurfaceDescriptor("settings").render(props.tab);
     case "home":

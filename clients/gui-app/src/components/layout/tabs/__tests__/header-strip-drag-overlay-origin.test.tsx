@@ -190,7 +190,7 @@ function seedSplitStrip(): void {
       ],
       activeItemId: SPLIT_ID,
       stripOrder: [X, Y],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 }

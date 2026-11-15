@@ -26,6 +26,7 @@ import {
   homeTabIntent,
   navigateToTabIntent,
   openOrFocusEpicIntent,
+  todosTabIntent,
 } from "@/lib/tab-navigation";
 import { isHomeTabEnabled } from "@/stores/layout/layout-store";
 import {
@@ -98,6 +99,10 @@ export function routerAdapterFor(
       const api = getSystemTabModalApi();
       if (api === null) return;
       api.openHistory();
+    },
+    // A tab, never the system modal: To-dos has no overlay form.
+    navigateToTodos: () => {
+      navigateToTabIntent(router.navigate, todosTabIntent(), undefined);
     },
     // When the modal is open, sub-leader / palette section picks update the
     // in-modal section without leaving the underlying tab. Otherwise: focus or

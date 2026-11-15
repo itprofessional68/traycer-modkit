@@ -1,7 +1,6 @@
-import type { HostClient } from "@traycer-clients/shared/host-client/host-client";
 import type { RequestOfMethod } from "@traycer-clients/shared/host-transport/host-messenger";
 import { useHostQuery } from "@/hooks/host/use-host-query";
-import type { HostRpcRegistry } from "@/lib/host";
+import { useHostClient, type HostRpcRegistry } from "@/lib/host";
 import { hostQueryKeys } from "@/lib/query-keys";
 
 /**
@@ -25,13 +24,13 @@ export function allTicketsQueryKey(hostId: string | null) {
 }
 
 /**
- * The To-dos pane's tickets, read through the app-wide host. Refetched when
- * the window regains focus, since a ticket changes in its own Task as often
- * as here.
+ * The To-dos pane's tickets, read through the app-wide host: the pane spans
+ * Tasks, so no one Task's session host answers for it. Mount only from the
+ * To-dos tab. Refetched when the window regains focus, since a ticket changes
+ * in its own Task as often as here.
  */
-export function useEpicMentionTicketsQuery(
-  client: HostClient<HostRpcRegistry> | null,
-) {
+export function useEpicMentionTicketsQuery() {
+  const client = useHostClient();
   return useHostQuery<HostRpcRegistry, "epic.mentionTickets">({
     client,
     method: "epic.mentionTickets",

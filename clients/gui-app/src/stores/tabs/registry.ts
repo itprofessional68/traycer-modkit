@@ -4,6 +4,7 @@ import { epicTabModule } from "@/stores/tabs/kinds/epic";
 import { draftTabModule } from "@/stores/tabs/kinds/draft";
 import { tracyTabModule } from "@/stores/tabs/kinds/tracy";
 import { historyTabModule } from "@/stores/tabs/kinds/history";
+import { todosTabModule } from "@/stores/tabs/kinds/todos";
 import { settingsTabModule } from "@/stores/tabs/kinds/settings";
 import { homeTabModule } from "@/stores/tabs/kinds/home";
 import type { TabNavigationIntent } from "@/lib/tab-navigation/intents";
@@ -40,6 +41,7 @@ export const TAB_KINDS = {
   draft: draftTabModule,
   tracy: tracyTabModule,
   history: historyTabModule,
+  todos: todosTabModule,
   settings: settingsTabModule,
   home: homeTabModule,
   "sample-workspace": sampleWorkspaceTabModule,
@@ -78,6 +80,9 @@ export function tabSurfaceDescriptor(
   kind: "history",
 ): TabSurfaceDescriptor<"history">;
 export function tabSurfaceDescriptor(
+  kind: "todos",
+): TabSurfaceDescriptor<"todos">;
+export function tabSurfaceDescriptor(
   kind: "settings",
 ): TabSurfaceDescriptor<"settings">;
 export function tabSurfaceDescriptor(
@@ -93,6 +98,7 @@ export function tabSurfaceDescriptor(
   | TabSurfaceDescriptor<"draft">
   | TabSurfaceDescriptor<"tracy">
   | TabSurfaceDescriptor<"history">
+  | TabSurfaceDescriptor<"todos">
   | TabSurfaceDescriptor<"settings">
   | TabSurfaceDescriptor<"sample-workspace">
   | TabSurfaceDescriptor<"home">;
@@ -103,6 +109,7 @@ export function tabSurfaceDescriptor(
   | TabSurfaceDescriptor<"draft">
   | TabSurfaceDescriptor<"tracy">
   | TabSurfaceDescriptor<"history">
+  | TabSurfaceDescriptor<"todos">
   | TabSurfaceDescriptor<"settings">
   | TabSurfaceDescriptor<"sample-workspace">
   | TabSurfaceDescriptor<"home"> {
@@ -115,6 +122,8 @@ export function tabSurfaceDescriptor(
       return TAB_KINDS.tracy.descriptor.surface;
     case "history":
       return TAB_KINDS.history.descriptor.surface;
+    case "todos":
+      return TAB_KINDS.todos.descriptor.surface;
     case "settings":
       return TAB_KINDS.settings.descriptor.surface;
     case "sample-workspace":
@@ -145,6 +154,8 @@ export function tabRequestClose(
       return TAB_KINDS.tracy.descriptor.requestClose(tab, close);
     case "history":
       return TAB_KINDS.history.descriptor.requestClose(tab, close);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.requestClose(tab, close);
     case "settings":
       return TAB_KINDS.settings.descriptor.requestClose(tab, close);
     case "sample-workspace":
@@ -168,6 +179,8 @@ export function tabDuplicate(tab: HeaderTab): TabNavigationIntent | null {
       return TAB_KINDS.tracy.descriptor.duplicate(tab);
     case "history":
       return TAB_KINDS.history.descriptor.duplicate(tab);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.duplicate(tab);
     case "settings":
       return TAB_KINDS.settings.descriptor.duplicate(tab);
     case "sample-workspace":
@@ -191,6 +204,8 @@ export function tabResolveIntent(tab: HeaderTab): TabNavigationIntent {
       return TAB_KINDS.tracy.descriptor.resolveIntent(tab);
     case "history":
       return TAB_KINDS.history.descriptor.resolveIntent(tab);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.resolveIntent(tab);
     case "settings":
       return TAB_KINDS.settings.descriptor.resolveIntent(tab);
     case "sample-workspace":
@@ -214,6 +229,8 @@ export function tabRouteOptions(intent: TabNavigationIntent): NavigateOptions {
       return TAB_KINDS.tracy.descriptor.routeOptions(intent);
     case "history":
       return TAB_KINDS.history.descriptor.routeOptions(intent);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.routeOptions(intent);
     case "settings":
       return TAB_KINDS.settings.descriptor.routeOptions(intent);
     case "sample-workspace":
@@ -237,6 +254,8 @@ export function tabActivate(intent: TabNavigationIntent): void {
       return TAB_KINDS.tracy.descriptor.activate(intent);
     case "history":
       return TAB_KINDS.history.descriptor.activate(intent);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.activate(intent);
     case "settings":
       return TAB_KINDS.settings.descriptor.activate(intent);
     case "sample-workspace":
@@ -262,6 +281,8 @@ export function tabRequiresCloseConfirm(tab: HeaderTab): boolean {
       return TAB_KINDS.tracy.descriptor.requiresCloseConfirm(tab);
     case "history":
       return TAB_KINDS.history.descriptor.requiresCloseConfirm(tab);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.requiresCloseConfirm(tab);
     case "settings":
       return TAB_KINDS.settings.descriptor.requiresCloseConfirm(tab);
     case "sample-workspace":
@@ -283,6 +304,7 @@ export function tabEpicId(tab: HeaderTab): string | null {
     case "draft":
     case "tracy":
     case "history":
+    case "todos":
     case "settings":
     case "home":
     case "sample-workspace":
@@ -313,6 +335,8 @@ export function tabOpenInNewWindow(
       return TAB_KINDS.tracy.descriptor.openInNewWindow(tab, deps);
     case "history":
       return TAB_KINDS.history.descriptor.openInNewWindow(tab, deps);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.openInNewWindow(tab, deps);
     case "settings":
       return TAB_KINDS.settings.descriptor.openInNewWindow(tab, deps);
     case "sample-workspace":
@@ -340,6 +364,8 @@ export function tabMatchesPath(tab: HeaderTab, pathname: string): boolean {
       return TAB_KINDS.tracy.descriptor.matchesPath(tab, pathname);
     case "history":
       return TAB_KINDS.history.descriptor.matchesPath(tab, pathname);
+    case "todos":
+      return TAB_KINDS.todos.descriptor.matchesPath(tab, pathname);
     case "settings":
       return TAB_KINDS.settings.descriptor.matchesPath(tab, pathname);
     case "sample-workspace":

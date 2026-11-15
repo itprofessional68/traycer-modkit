@@ -67,7 +67,7 @@ describe("home active selection", () => {
       version: 2,
       items: [{ kind: "tab", id: "tab:epic:epic-a", ref: epicRef }],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       activationHistory: [],
       stripOrder: [epicRef],
     });
@@ -87,7 +87,7 @@ describe("home active selection", () => {
       version: 2,
       items: [{ kind: "tab", id: "tab:epic:epic-a", ref: epicRef }],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
       activationHistory: [],
       stripOrder: [epicRef],
     });

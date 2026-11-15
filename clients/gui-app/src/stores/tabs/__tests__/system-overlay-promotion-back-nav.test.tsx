@@ -143,7 +143,9 @@ describe("back stays functional after promoting a system overlay to a tab", () =
     hostMountLog.length = 0;
     resetSystemTabModalColdLoadForTests();
     useSettingsSectionStore.setState({ section: null });
-    useTabsStore.setState({ systemTabs: { history: null, settings: null } });
+    useTabsStore.setState({
+      systemTabs: { history: null, settings: null, todos: null },
+    });
   });
   afterEach(() => {
     cleanup();

@@ -537,7 +537,7 @@ function resetStores(): void {
     items: [],
     activeItemId: null,
     stripOrder: [],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
   useEpicCanvasStore.setState(useEpicCanvasStore.getInitialState(), true);
   useLandingDraftStore.setState({ drafts: [], activeDraftId: null });
@@ -582,7 +582,7 @@ describe("adversarial navigation: authority clock & compaction", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -645,7 +645,7 @@ describe("adversarial navigation: authority clock & compaction", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -693,7 +693,7 @@ describe("adversarial navigation: authority clock & compaction", () => {
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -742,7 +742,7 @@ describe("adversarial navigation: authority clock & compaction", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -787,7 +787,7 @@ describe("adversarial navigation: authority clock & compaction", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -837,7 +837,7 @@ describe("adversarial navigation: corrective ignoreBlocker + finite failure", ()
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -872,7 +872,7 @@ describe("adversarial navigation: corrective ignoreBlocker + finite failure", ()
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -922,7 +922,7 @@ describe("adversarial navigation: corrective ignoreBlocker + finite failure", ()
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -987,7 +987,7 @@ describe("adversarial navigation: corrective ignoreBlocker + finite failure", ()
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1068,7 +1068,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     releaseHydration(nav.asNavigate);
@@ -1114,7 +1114,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     releaseHydration(nav.asNavigate);
@@ -1199,7 +1199,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -1230,7 +1230,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const navA = makeDeferredNavigate();
     const navB = makeDeferredNavigate();
@@ -1269,7 +1269,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
         { kind: "tab", id: tabItemId(second.ref), ref: second.ref },
       ],
       activeItemId: tabItemId(first.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const unsubscribeRace = tabCommandCoordinator.subscribe(() => {
       const current = useEpicCanvasStore.getState().tabsById[first.tabId];
@@ -1343,6 +1343,7 @@ describe("adversarial navigation: permanent observer & hydration queue", () => {
           lastPath: "/epics",
         },
         settings: null,
+        todos: null,
       },
       stripOrder: [{ kind: "history", id: "history" }],
     });
@@ -1404,7 +1405,7 @@ describe("adversarial navigation: prepared Draft→Epic split swap", () => {
         },
       ],
       activeItemId: splitId,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     return { draftId, draftRef, companion, splitId };
   }
@@ -1558,7 +1559,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const capture = captureLedgerSnapshots();
     const activation = tabCommandCoordinator.activateTab({
@@ -1585,7 +1586,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const draftId = "draft-fresh-1";
     const capture = captureLedgerSnapshots();
@@ -1641,7 +1642,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const capture = captureLedgerSnapshots();
     const activation = tabCommandCoordinator.activateTab({
@@ -1663,7 +1664,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const capture = captureLedgerSnapshots();
     const activation = tabCommandCoordinator.activateTab({
@@ -1687,7 +1688,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     expect(
       useEpicCanvasStore.getState().tabsById[retained.tabId],
@@ -1717,7 +1718,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [{ kind: "tab", id: tabItemId(placed.ref), ref: placed.ref }],
       activeItemId: tabItemId(placed.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const beforeKeys = flattenLayoutRefs(layoutFromTabsState()).map(tabRefKey);
     const capture = captureLedgerSnapshots();
@@ -1750,7 +1751,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const capture = captureLedgerSnapshots();
     const activation = tabCommandCoordinator.activateTab({
@@ -1782,7 +1783,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
         },
       ],
       activeItemId: tabItemId(canonical.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const beforeKeys = flattenLayoutRefs(layoutFromTabsState()).map(tabRefKey);
     const capture = captureLedgerSnapshots();
@@ -1822,7 +1823,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
         },
       ],
       activeItemId: tabItemId(thirdOwner.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const layoutBefore = useTabsStore.getState().items;
     const canvasBefore = useEpicCanvasStore.getState();
@@ -1852,7 +1853,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const layoutBefore = useTabsStore.getState().items;
     const activeBefore = useEpicCanvasStore.getState().activeTabId;
@@ -1912,7 +1913,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const layoutBefore = useTabsStore.getState().items;
     const activeBefore = useEpicCanvasStore.getState().activeTabId;
@@ -1945,7 +1946,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const state = useLandingDraftStore.getState();
     const create = vi
@@ -1972,7 +1973,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [{ kind: "tab", id: tabItemId(epic.ref), ref: epic.ref }],
       activeItemId: tabItemId(epic.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const primary = new Error("activate projection failure");
     const cleanup = new Error("activate EMPTY-ledger failure");
@@ -2017,7 +2018,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [{ kind: "tab", id: tabItemId(epic.ref), ref: epic.ref }],
       activeItemId: tabItemId(epic.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const activation = tabCommandCoordinator.activateTab({
       kind: "system",
@@ -2073,7 +2074,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
         { kind: "tab", id: tabItemId(phase.ref), ref: phase.ref },
       ],
       activeItemId: tabItemId(draftRef),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const primary = new Error("migration projection failure");
     const cleanup = new Error("migration EMPTY-ledger failure");
@@ -2123,7 +2124,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const activation = tabCommandCoordinator.activateTab({
@@ -2148,7 +2149,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
         },
       ],
       activeItemId: "split-structural",
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const restored = tabCommandCoordinator.restoreTabActivation(activation);
@@ -2168,7 +2169,7 @@ describe("adversarial navigation: coordinator ledger & structural restore", () =
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
 
     const activation = tabCommandCoordinator.activateTab({
@@ -2213,7 +2214,7 @@ describe("adversarial navigation: Resource Monitor nested + Phase completion", (
       version: 2,
       items: [],
       activeItemId: null,
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     activateTabIntent(
@@ -2279,7 +2280,7 @@ describe("adversarial navigation: Resource Monitor nested + Phase completion", (
         { kind: "tab", id: tabItemId(second.ref), ref: second.ref },
       ],
       activeItemId: tabItemId(first.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -2324,7 +2325,7 @@ describe("adversarial navigation: Resource Monitor nested + Phase completion", (
         { kind: "tab", id: tabItemId(second.ref), ref: second.ref },
       ],
       activeItemId: tabItemId(first.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const focusedBefore = focusedRefKey();
     const nav = makeDeferredNavigate();
@@ -2396,7 +2397,7 @@ describe("adversarial navigation: external supersede + POP + envelope fields", (
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -2439,7 +2440,7 @@ describe("adversarial navigation: external supersede + POP + envelope fields", (
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 
@@ -2534,7 +2535,7 @@ describe("adversarial navigation: external supersede + POP + envelope fields", (
       version: 2,
       items: [{ kind: "tab", id: tabItemId(a.ref), ref: a.ref }],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
     activateTabIntent(nav.asNavigate, epicIntent("epic-a", a.tabId), undefined);
@@ -2557,7 +2558,7 @@ describe("adversarial navigation: external supersede + POP + envelope fields", (
         { kind: "tab", id: tabItemId(b.ref), ref: b.ref },
       ],
       activeItemId: tabItemId(a.ref),
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     const nav = makeDeferredNavigate();
 

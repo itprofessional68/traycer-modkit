@@ -2492,7 +2492,7 @@ describe("landing draft host-mirror bookkeeping", () => {
         version: 2,
         items: [],
         activeItemId: null,
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
         activationHistory: [],
         stripOrder: [],
       });
@@ -2507,7 +2507,7 @@ describe("landing draft host-mirror bookkeeping", () => {
         version: 2,
         items: [],
         activeItemId: null,
-        systemTabs: { history: null, settings: null },
+        systemTabs: { history: null, settings: null, todos: null },
         activationHistory: [],
         stripOrder: [],
       });

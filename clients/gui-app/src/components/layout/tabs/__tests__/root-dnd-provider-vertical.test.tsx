@@ -233,7 +233,7 @@ function seedVerticalStrip(): void {
       ],
       activeItemId: itemIdOf(A),
       stripOrder: [A, B, X, Y, C],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
   });
 }
@@ -1276,7 +1276,7 @@ describe("a canvas tab dropped on a vertical strip row", () => {
       items: [{ kind: "tab", id: itemIdOf(TARGET), ref: TARGET }],
       activeItemId: itemIdOf(TARGET),
       stripOrder: [TARGET],
-      systemTabs: { history: null, settings: null },
+      systemTabs: { history: null, settings: null, todos: null },
     });
     return {
       kind: ARTIFACT_TAB_DND_TYPE,

@@ -109,6 +109,7 @@ const ROUTE_TEMPLATE_LABELS: Readonly<
   "/bot/": "Tracy",
   "/bot/$botId": "Bot",
   "/sample-workspace": "Sample workspace",
+  "/todos": "To-dos",
   "/home": "Home",
   "/onboarding": "Onboarding",
   "/settings": "Settings",

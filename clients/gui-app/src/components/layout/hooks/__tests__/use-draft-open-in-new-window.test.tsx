@@ -140,7 +140,7 @@ function seedDraftTab(draftId: string): void {
     items: [{ kind: "tab", id: `tab:draft:${draftId}`, ref }],
     activeItemId: `tab:draft:${draftId}`,
     stripOrder: [ref],
-    systemTabs: { history: null, settings: null },
+    systemTabs: { history: null, settings: null, todos: null },
   });
 }
 
