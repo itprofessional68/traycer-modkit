@@ -2,14 +2,10 @@ import { useMemo } from "react";
 import {
   useMutation,
   useQueryClient,
-  type QueryKey,
+  type Query,
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { HostClient } from "@traycer-clients/shared/host-client/host-client";
-import {
-  hostRpcServingTierHostId,
-  readProcessHostRpcTierPlan,
-} from "@traycer-clients/shared/host-client/host-rpc-routing";
 import type { HostRpcError } from "@traycer-clients/shared/host-transport/host-messenger";
 import type { TicketStatus } from "@traycer/protocol/common/registry";
 import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/unary-schemas";
@@ -41,14 +37,6 @@ export interface UpdateTicketStatusVariables {
   readonly status: TicketStatus;
 }
 
-interface TicketStatusContext {
-  /**
-   * The ticket reads of the host the write was sent from, captured when it
-   * started: the app-wide host can change while it is in flight.
-   */
-  readonly ticketsScope: QueryKey;
-}
-
 /**
  * Sets a ticket's status from the To-dos pane, which lists tickets from
  * Tasks that may or may not be open here. An open Task takes the write
@@ -59,8 +47,9 @@ interface TicketStatusContext {
  * lays the pending status over them ({@link usePendingTicketStatuses}), so
  * a read landing meanwhile cannot undo it, and a failed write needs no
  * rollback. Success writes the status into the reads before the overlay
- * lifts, so the row does not flicker back; then every host's ticket reads
- * are read again. Every callback is the mutation's own, never one handed to
+ * lifts, so the row does not flicker back, then reads them all again. Both
+ * span every host's reads: the app-wide host can change while the write is
+ * in flight, and the list shown when it lands is the new host's. Every callback is the mutation's own, never one handed to
  * a single call: a row checked off under the Open filter leaves the list at
  * once, so the component that started the write is gone before the host
  * answers.
@@ -71,43 +60,22 @@ interface TicketStatusContext {
 export function useEpicUpdateArtifactStatusDirect(): UseMutationResult<
   void,
   HostRpcError,
-  UpdateTicketStatusVariables,
-  TicketStatusContext
+  UpdateTicketStatusVariables
 > {
   return useEpicUpdateArtifactStatusDirectForClient(useHostClient());
 }
 
 /**
- * {@link useEpicUpdateArtifactStatusDirect} on `client`'s host, which must be
- * the host the pane's tickets were read from: their cached reads are the ones
- * it edits.
+ * {@link useEpicUpdateArtifactStatusDirect} on `client`'s host: a Task not
+ * open here takes the write there.
  */
 export function useEpicUpdateArtifactStatusDirectForClient(
-  client: Pick<
-    HostClient<HostRpcRegistry>,
-    "request" | "getActiveHostId"
-  > | null,
-): UseMutationResult<
-  void,
-  HostRpcError,
-  UpdateTicketStatusVariables,
-  TicketStatusContext
-> {
+  client: Pick<HostClient<HostRpcRegistry>, "request"> | null,
+): UseMutationResult<void, HostRpcError, UpdateTicketStatusVariables> {
   const queryClient = useQueryClient();
   return useMutation(
     withHostMutationLifecycleBoundary("epic.updateArtifactStatus", {
       mutationKey: epicMutationKeys.updateArtifactStatus(),
-      onMutate: (): TicketStatusContext => ({
-        ticketsScope: hostQueryKeys.methodScope(
-          hostRpcServingTierHostId(
-            "epic.mentionTickets",
-            client?.getActiveHostId() ?? null,
-            readProcessHostRpcTierPlan(),
-            null,
-          ),
-          "epic.mentionTickets",
-        ),
-      }),
       mutationFn: (variables) =>
         withHostQueryErrorBoundary("epic.updateArtifactStatus", async () => {
           // `peek`, not `get`: a write from outside the Task is not a visit,
@@ -132,9 +100,12 @@ export function useEpicUpdateArtifactStatusDirectForClient(
           });
           trackArtifactStatusChanged("ticket", variables.status);
         }),
-      onSuccess: (_data, variables, context) => {
+      onSuccess: async (_data, variables) => {
+        // A read sent before the write committed would land on top of the
+        // patch with the old status, after the overlay has lifted.
+        await queryClient.cancelQueries({ predicate: isTicketRead });
         queryClient.setQueriesData<EpicMentionTicketsResponse>(
-          { queryKey: context.ticketsScope },
+          { predicate: isTicketRead },
           (data) =>
             data === undefined ? data : withTicketStatus(data, variables),
         );
@@ -143,17 +114,17 @@ export function useEpicUpdateArtifactStatusDirectForClient(
         toastFromHostError(error, "Couldn't update the ticket.");
       },
       onSettled: () => {
-        // Every host's: the app-wide host may have moved since the write
-        // started, and the list now shown is the new host's.
-        void queryClient.invalidateQueries({
-          predicate: (query) =>
-            hostQueryKeys.matchesMethodOnAnyHost(
-              query.queryKey,
-              "epic.mentionTickets",
-            ),
-        });
+        void queryClient.invalidateQueries({ predicate: isTicketRead });
       },
     }),
+  );
+}
+
+/** A ticket list read, on any host. */
+function isTicketRead(query: Query): boolean {
+  return hostQueryKeys.matchesMethodOnAnyHost(
+    query.queryKey,
+    "epic.mentionTickets",
   );
 }
 

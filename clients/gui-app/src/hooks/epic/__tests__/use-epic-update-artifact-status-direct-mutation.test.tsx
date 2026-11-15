@@ -163,7 +163,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     hoisted.toastFromHostError.mockReset();
   });
 
-  it("keeps the read unchanged while pending, then patches and invalidates every host on success", async () => {
+  it("keeps the reads unchanged while pending, then patches and invalidates every host's on success", async () => {
     hoisted.peek.mockReturnValue(null);
     const answer = deferred();
     const requested = nextRequest(answer.promise);
@@ -198,7 +198,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       },
     ]);
     expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
     expect(
       view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
     ).toBe(false);
@@ -367,7 +367,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     });
   });
 
-  it("invalidates the new host's tickets when the app-wide host changes during a write", async () => {
+  it("patches and invalidates the new host's tickets when the app-wide host changes during a write", async () => {
     hoisted.peek.mockReturnValue(null);
     const answer = deferred();
     const requested = nextRequest(answer.promise);
@@ -385,7 +385,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     });
 
     expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
     expect(view.invalidate).toHaveBeenCalledTimes(1);
     const { predicate } = view.invalidate.mock.calls[0][0] as {
       predicate: (query: { queryKey: unknown }) => boolean;
