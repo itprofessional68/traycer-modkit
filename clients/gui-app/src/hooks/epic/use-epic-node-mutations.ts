@@ -4,14 +4,14 @@ import {
   type CreatableArtifactKind,
 } from "@/lib/artifacts/node-display";
 import { pruneRecoveryTiles } from "@/lib/tab-recovery/history";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 import { useHostMutation } from "@/hooks/host/use-host-query";
 import { useEpicSessionHostClient } from "@/hooks/epic/use-epic-session-host-client";
 import { toastFromHostError } from "@/lib/host-error-toast";
 import { appLogger } from "@/lib/logger";
 import { Analytics, AnalyticsEvent } from "@/lib/analytics";
-import { hostQueryKeys } from "@/lib/query-keys";
+import { epicMutationKeys, hostQueryKeys } from "@/lib/query-keys";
 import { useOpenEpicHandle } from "@/providers/use-open-epic-handle";
 import type { CommandRecord } from "@traycer-clients/shared/replica-runtime";
 import { HostRpcError } from "@traycer-clients/shared/host-transport/host-messenger";
@@ -261,6 +261,7 @@ function useEpicDeleteArtifactCommand(
  */
 export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   const handle = useOpenEpicHandle();
+  const queryClient = useQueryClient();
   const isPending = useStore(handle.store, (state) =>
     state.writeCommands.some(
       (command) =>
@@ -281,6 +282,7 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   const mutateAsync = async (variables: Variables): Promise<Response> => {
     try {
       await updateArtifactStatusThroughOpenEpic(handle, variables);
+      refreshTicketReadsUnlessWriting(queryClient);
       return { updated: true };
     } catch (error: unknown) {
       const normalized =
@@ -302,6 +304,29 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
     void mutateAsync(variables).then(undefined, () => {});
   };
   return { mutate, mutateAsync, isPending };
+}
+
+/**
+ * Reads ticket lists again after a status write in a Task, so a To-dos tab
+ * shown beside it catches up. Held while the pane's own writes are in flight:
+ * a read then would drop their pending rows, and the last of them reads
+ * again when it settles.
+ */
+function refreshTicketReadsUnlessWriting(queryClient: QueryClient): void {
+  if (
+    queryClient.isMutating({
+      mutationKey: epicMutationKeys.updateArtifactStatus(),
+    }) > 0
+  ) {
+    return;
+  }
+  void queryClient.invalidateQueries({
+    predicate: (query) =>
+      hostQueryKeys.matchesMethodOnAnyHost(
+        query.queryKey,
+        "epic.mentionTickets",
+      ),
+  });
 }
 
 /**

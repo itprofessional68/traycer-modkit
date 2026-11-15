@@ -4,10 +4,17 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/unary-schemas";
 import { nextCallOf } from "@/__tests__/next-call";
-import { allTicketsQueryKey } from "@/hooks/epic/use-epic-mention-tickets-query";
+import type { HostRpcRegistry } from "@/lib/host";
+import { hostQueryKeys } from "@/lib/query-keys";
 import { useEpicUpdateArtifactStatusDirectForClient } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 
 const HOST = "host-1";
+
+/** The To-dos pane's read: every ticket, up to the method's 100. */
+const TICKETS_KEY = hostQueryKeys.method<
+  HostRpcRegistry,
+  "epic.mentionTickets"
+>(HOST, "epic.mentionTickets", { query: "", limit: 100 });
 
 const hoisted = await vi.hoisted(async () => {
   const { createStore } = await import("zustand/vanilla");
@@ -56,7 +63,7 @@ const DONE = { epicId: "task-a", artifactId: "ticket-1", status: 2 } as const;
 
 function renderWrite() {
   const queryClient = new QueryClient();
-  queryClient.setQueryData(allTicketsQueryKey(HOST), TICKETS);
+  queryClient.setQueryData(TICKETS_KEY, TICKETS);
   const client = { getActiveHostId: () => HOST, request: hoisted.request };
   const view = renderHook(
     () => useEpicUpdateArtifactStatusDirectForClient(client),
@@ -69,9 +76,8 @@ function renderWrite() {
     },
   );
   const cachedStatus = () =>
-    queryClient.getQueryData<EpicMentionTicketsResponse>(
-      allTicketsQueryKey(HOST),
-    )?.entries[0].status;
+    queryClient.getQueryData<EpicMentionTicketsResponse>(TICKETS_KEY)
+      ?.entries[0].status;
   return { ...view, cachedStatus };
 }
 

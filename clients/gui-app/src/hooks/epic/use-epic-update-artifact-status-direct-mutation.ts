@@ -38,10 +38,12 @@ export interface UpdateTicketStatusVariables {
 interface TicketStatusContext {
   /** Every cached ticket read of the host the To-dos pane reads. */
   readonly ticketsScope: QueryKey;
-  /** Those reads as they were, to put back if the write fails. */
-  readonly previous: ReadonlyArray<
-    readonly [QueryKey, EpicMentionTicketsResponse | undefined]
-  >;
+  /**
+   * This ticket's status in each of those reads before the write, to put
+   * back if it fails. Only this ticket's: another row's write may still be
+   * in flight, and its pending status must survive this one's rollback.
+   */
+  readonly previousStatuses: ReadonlyArray<readonly [QueryKey, number | null]>;
 }
 
 /**
@@ -51,7 +53,9 @@ interface TicketStatusContext {
  * any other goes straight to `epic.updateArtifactStatus` on the pane's host.
  *
  * The ticket's row moves at once (an optimistic edit of the cached ticket
- * reads), and the edit is undone with a toast if the write fails. Every
+ * reads), and the edit is undone with a toast if the write fails. The reads
+ * are refreshed once the last of these writes settles, not after each: a read
+ * landing while another is in flight would drop that one's pending row. Every
  * callback is the mutation's own, never one handed to a single call: a row
  * checked off under the Open filter leaves the list at once, so the
  * component that started the write is gone before the host answers.
@@ -101,15 +105,26 @@ export function useEpicUpdateArtifactStatusDirectForClient(
           "epic.mentionTickets",
         );
         await queryClient.cancelQueries({ queryKey: ticketsScope });
-        const previous = queryClient.getQueriesData<EpicMentionTicketsResponse>(
-          { queryKey: ticketsScope },
-        );
+        const previousStatuses = queryClient
+          .getQueriesData<EpicMentionTicketsResponse>({
+            queryKey: ticketsScope,
+          })
+          .flatMap(([queryKey, data]) => {
+            const entry = data?.entries.find((candidate) =>
+              isTicket(candidate, variables),
+            );
+            return entry === undefined
+              ? []
+              : [[queryKey, entry.status] as const];
+          });
         queryClient.setQueriesData<EpicMentionTicketsResponse>(
           { queryKey: ticketsScope },
           (data) =>
-            data === undefined ? data : withTicketStatus(data, variables),
+            data === undefined
+              ? data
+              : withTicketStatus(data, variables, variables.status),
         );
-        return { ticketsScope, previous };
+        return { ticketsScope, previousStatuses };
       },
       mutationFn: (variables) =>
         withHostQueryErrorBoundary("epic.updateArtifactStatus", async () => {
@@ -135,33 +150,51 @@ export function useEpicUpdateArtifactStatusDirectForClient(
           });
           trackArtifactStatusChanged("ticket", variables.status);
         }),
-      onError: (error, _variables, context) => {
+      onError: (error, variables, context) => {
         if (context !== undefined) {
-          for (const [queryKey, data] of context.previous) {
-            queryClient.setQueryData(queryKey, data);
+          for (const [queryKey, status] of context.previousStatuses) {
+            queryClient.setQueryData<EpicMentionTicketsResponse>(
+              queryKey,
+              (data) =>
+                data === undefined
+                  ? data
+                  : withTicketStatus(data, variables, status),
+            );
           }
         }
         toastFromHostError(error, "Couldn't update the ticket.");
       },
       onSettled: (_data, _error, _variables, context) => {
         if (context === undefined) return;
+        // This write still counts as in flight here.
+        const writing = queryClient.isMutating({
+          mutationKey: epicMutationKeys.updateArtifactStatus(),
+        });
+        if (writing > 1) return;
         void queryClient.invalidateQueries({ queryKey: context.ticketsScope });
       },
     }),
   );
 }
 
+function isTicket(
+  entry: EpicMentionTicketsResponse["entries"][number],
+  ticket: Pick<UpdateTicketStatusVariables, "epicId" | "artifactId">,
+): boolean {
+  return (
+    entry.epicId === ticket.epicId && entry.artifactId === ticket.artifactId
+  );
+}
+
 function withTicketStatus(
   data: EpicMentionTicketsResponse,
-  variables: UpdateTicketStatusVariables,
+  ticket: Pick<UpdateTicketStatusVariables, "epicId" | "artifactId">,
+  status: number | null,
 ): EpicMentionTicketsResponse {
   return {
     ...data,
     entries: data.entries.map((entry) =>
-      entry.epicId === variables.epicId &&
-      entry.artifactId === variables.artifactId
-        ? { ...entry, status: variables.status }
-        : entry,
+      isTicket(entry, ticket) ? { ...entry, status } : entry,
     ),
   };
 }

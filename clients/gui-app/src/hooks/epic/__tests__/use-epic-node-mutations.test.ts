@@ -23,6 +23,8 @@ const clients = vi.hoisted(() => ({
 
 const queryClientFixture = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
+  // No To-dos write in flight, so a status write refreshes ticket reads.
+  isMutating: () => 0,
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => ({

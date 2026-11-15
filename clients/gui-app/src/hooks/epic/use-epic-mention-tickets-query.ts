@@ -1,7 +1,6 @@
 import type { RequestOfMethod } from "@traycer-clients/shared/host-transport/host-messenger";
 import { useHostQuery } from "@/hooks/host/use-host-query";
 import { useHostClient, type HostRpcRegistry } from "@/lib/host";
-import { hostQueryKeys } from "@/lib/query-keys";
 
 /**
  * Every ticket the host has indexed, across Tasks: an empty query matches all,
@@ -15,27 +14,23 @@ const ALL_TICKETS_PARAMS: RequestOfMethod<
   "epic.mentionTickets"
 > = { query: "", limit: 100 };
 
-export function allTicketsQueryKey(hostId: string | null) {
-  return hostQueryKeys.method<HostRpcRegistry, "epic.mentionTickets">(
-    hostId,
-    "epic.mentionTickets",
-    ALL_TICKETS_PARAMS,
-  );
-}
-
 /**
  * The To-dos pane's tickets, read through the app-wide host: the pane spans
  * Tasks, so no one Task's session host answers for it. Mount only from the
- * To-dos tab. Refetched when the window regains focus, since a ticket changes
- * in its own Task as often as here.
+ * To-dos tab.
+ *
+ * A ticket changes in its own Task, by an agent or on another machine as
+ * often as here, and nothing tells this read. So it is never fresh: it is
+ * read again each time the tab is shown (`visible` turning true) and when the
+ * window regains focus, and it is not read while the tab is hidden.
  */
-export function useEpicMentionTicketsQuery() {
+export function useEpicMentionTicketsQuery(visible: boolean) {
   const client = useHostClient();
   return useHostQuery<HostRpcRegistry, "epic.mentionTickets">({
     client,
     method: "epic.mentionTickets",
     params: ALL_TICKETS_PARAMS,
     cacheKeyIdentity: undefined,
-    options: { refetchOnWindowFocus: true },
+    options: { enabled: visible, staleTime: 0, refetchOnWindowFocus: true },
   });
 }

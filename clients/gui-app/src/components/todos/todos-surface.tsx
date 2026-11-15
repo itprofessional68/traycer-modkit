@@ -4,6 +4,7 @@ import {
   buildHistoryItemsFromTasks,
   EMPTY_LOCAL_HOMED_TASK_IDS,
 } from "@/components/home/data/home-page.data";
+import { useTabSurfaceActivity } from "@/components/layout/tab-surface-activity-hooks";
 import { TodoRow } from "@/components/todos/todo-row";
 import {
   filterTodoGroupsByRepo,
@@ -17,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AgentSpinningDots } from "@/components/ui/agent-spinning-dots";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEpicMentionTicketsQuery } from "@/hooks/epic/use-epic-mention-tickets-query";
 import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query";
@@ -31,7 +33,7 @@ const ALL_REPOS = "all-repos";
  * Task, to check off. Repo names come from the Task list.
  */
 export function TodosSurface(): ReactNode {
-  const tickets = useEpicMentionTicketsQuery();
+  const tickets = useEpicMentionTicketsQuery(useTabSurfaceActivity().visible);
   const { tasks, currentUserId } = useCloudEpicTasksQuery(undefined, {
     enabled: true,
   });
@@ -115,6 +117,14 @@ export function TodosSurface(): ReactNode {
           </Select>
         ) : null}
       </div>
+      {tickets.data === undefined && !tickets.isError ? (
+        <AgentSpinningDots
+          className={undefined}
+          testId="todos-loading"
+          variant={undefined}
+          tone="muted"
+        />
+      ) : null}
       {tickets.isError ? (
         <p className="text-ui-sm text-muted-foreground">
           Couldn&apos;t load your tickets.
@@ -122,7 +132,9 @@ export function TodosSurface(): ReactNode {
       ) : null}
       {tickets.data !== undefined && groups.length === 0 ? (
         <p className="text-ui-sm text-muted-foreground">
-          {filter === "open" ? "Nothing left to do." : "No tickets."}
+          {filter === "open"
+            ? "No open tickets in this view."
+            : "No tickets in this view."}
         </p>
       ) : null}
       {groups.map((group) => {
