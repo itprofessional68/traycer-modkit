@@ -1,8 +1,55 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { AppRouterProvider } from "@/app-router-provider";
 import { createAppRouter, type AppRouter } from "@/router";
+import { TraycerAppRuntimeSurface } from "@/traycer-app";
+
+// The runtime surface mounts its bridges beside the router. They are not what
+// this test pins, so each renders nothing.
+vi.mock("@/components/layout/bridges/runner-host-bridges", () => ({
+  RunnerHostBridges: () => null,
+}));
+vi.mock("@/components/layout/bridges/host-controller-status-listener", () => ({
+  HostControllerStatusListener: () => null,
+}));
+vi.mock("@/components/layout/bridges/app-update-toast-controller", () => ({
+  AppUpdateToastController: () => null,
+}));
+vi.mock(
+  "@/components/layout/bridges/login-import-announcement-controller",
+  () => ({ LoginImportAnnouncementController: () => null }),
+);
+vi.mock(
+  "@/components/layout/bridges/session-import-announcement-controller",
+  () => ({ SessionImportAnnouncementController: () => null }),
+);
+vi.mock("@/components/share-on-x/share-on-x-controller", () => ({
+  ShareOnXController: () => null,
+}));
+vi.mock("@/components/layout/bridges/link-login-deep-link-bridge", () => ({
+  LinkLoginDeepLinkBridge: () => null,
+}));
+vi.mock(
+  "@/components/layout/bridges/worktree-delete-progress-toast-bridge",
+  () => ({ WorktreeDeleteProgressToastBridge: () => null }),
+);
+vi.mock(
+  "@/components/layout/bridges/session-import-progress-toast-bridge",
+  () => ({ SessionImportProgressToastBridge: () => null }),
+);
+vi.mock("@/providers/harness-catalog-prefetcher", () => ({
+  HarnessCatalogPrefetcher: () => null,
+}));
+vi.mock("@/providers/rate-limit-poll-provider", () => ({
+  RateLimitPollProvider: () => null,
+}));
+vi.mock("@/providers/history-prune-provider", () => ({
+  HistoryPruneProvider: () => null,
+}));
+vi.mock("@/components/chat/chat-usage-dialog", () => ({
+  ChatUsageDialog: () => null,
+}));
 
 /**
  * Records every subscription to `router`'s history in order, and the ones
@@ -55,5 +102,14 @@ describe("traversal observers versus the router's load", () => {
     expect(live.size).toBe(3);
     unmount();
     expect(live.size).toBe(0);
+  });
+
+  it("wires the observers through the runtime surface the app renders", () => {
+    const router = createAppRouter("/epics/epic-surface", null);
+    const { subscribed } = recordSubscriptions(router);
+
+    render(<TraycerAppRuntimeSurface router={router} />);
+
+    expect(subscribed.indexOf(router.load)).toBe(2);
   });
 });

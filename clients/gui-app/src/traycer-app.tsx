@@ -351,7 +351,7 @@ interface TraycerAppRuntimeSurfaceProps {
   readonly router: AppRouter;
 }
 
-function TraycerAppRuntimeSurface(props: TraycerAppRuntimeSurfaceProps) {
+export function TraycerAppRuntimeSurface(props: TraycerAppRuntimeSurfaceProps) {
   // The host-readiness gate now lives INSIDE the router (around the routed
   // page, in `RootComponent`'s `HostReadyGate`), so `RouterProvider` mounts
   // unconditionally here. That keeps the root-route bridges - the menu command
