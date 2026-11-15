@@ -4,9 +4,11 @@ import type { HostClient } from "@traycer-clients/shared/host-client/host-client
 import { AgentSpinningDots } from "@/components/ui/agent-spinning-dots";
 import { Button } from "@/components/ui/button";
 import { useClipboardCopy } from "@/hooks/ui/use-clipboard-copy";
-import { useWorkspaceAppendGuideNote } from "@/hooks/workspace/use-workspace-append-guide-note-mutation";
+import {
+  useWorkspaceAppendGuideNote,
+  type AppendGuideNoteOutcome,
+} from "@/hooks/workspace/use-workspace-append-guide-note-mutation";
 import type { HostRpcRegistry } from "@/lib/host";
-import { toastFromHostError } from "@/lib/host-error-toast";
 
 const COPY_FAILED = "Couldn't copy the note.";
 
@@ -17,7 +19,7 @@ const COPY_FAILED = "Couldn't copy the note.";
  * the person to put where they choose.
  */
 export function PresetGuideNoteButton(props: {
-  readonly client: HostClient<HostRpcRegistry> | null;
+  readonly client: Pick<HostClient<HostRpcRegistry>, "request"> | null;
   readonly repoPath: string;
   readonly note: string;
 }): ReactNode {
@@ -42,24 +44,16 @@ export function PresetGuideNoteButton(props: {
       disabled={client === null || append.isPending}
       data-testid="agent-preset-add-to-guide"
       onClick={() => {
-        append.mutate(
-          { repoPath, note },
-          {
-            onSuccess: (outcome) => {
-              if (outcome === "added") {
-                toast.success("Added to the project's agent selection guide.");
-              } else if (outcome === "present") {
-                toast.info("The guide already has this note.");
-              } else if (outcome === "changed") {
-                toast.warning("The guide changed while saving. Try again.");
-              } else {
-                copy(note);
-              }
-            },
-            onError: (error) => {
-              toastFromHostError(error, "Couldn't add the note to the guide.");
-            },
+        // `mutateAsync`, not callbacks handed to `mutate`: the row can go
+        // (the preset deleted, another machine chosen) before the host
+        // answers, and TanStack drops a per-call callback whose component is
+        // gone. The continuation reads no component state; a failure is
+        // toasted by the hook.
+        void append.mutateAsync({ repoPath, note }).then(
+          (outcome) => {
+            reportOutcome(outcome, () => copy(note));
           },
+          () => undefined,
         );
       }}
     >
@@ -73,4 +67,19 @@ export function PresetGuideNoteButton(props: {
       ) : null}
     </Button>
   );
+}
+
+function reportOutcome(
+  outcome: AppendGuideNoteOutcome,
+  copyNote: () => void,
+): void {
+  if (outcome === "added") {
+    toast.success("Added to the project's agent selection guide.");
+  } else if (outcome === "present") {
+    toast.info("The guide already has this note.");
+  } else if (outcome === "changed") {
+    toast.warning("The guide changed while saving. Try again.");
+  } else {
+    copyNote();
+  }
 }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/agent-presets/guide-note";
 import type { HostRpcRegistry } from "@/lib/host";
 import { workspaceMutationKeys } from "@/lib/query-keys";
+import { toastFromHostError } from "@/lib/host-error-toast";
 import { withHostQueryErrorBoundary } from "@/lib/query/host-query-error-boundary";
 import { fileContentRevision } from "@/lib/workspace/file-content-revision";
 
@@ -43,10 +44,12 @@ export type AppendGuideNoteOutcome =
  * (`.traycer/agent-selection-guide.md`) on the preset's host: a read, then a
  * write guarded by the read's revision, so an edit made in between is never
  * overwritten. Two calls, so it is built on `useMutation` with the host
- * boundaries `useHostMutation` would apply to one.
+ * boundaries `useHostMutation` would apply to one. A failure is toasted here,
+ * on the mutation, so it is still reported when the button that started it
+ * has gone; the outcome is the caller's to report.
  */
 export function useWorkspaceAppendGuideNote(
-  client: HostClient<HostRpcRegistry> | null,
+  client: Pick<HostClient<HostRpcRegistry>, "request"> | null,
 ): UseMutationResult<
   AppendGuideNoteOutcome,
   HostRpcError,
@@ -64,6 +67,9 @@ export function useWorkspaceAppendGuideNote(
           }
           return appendGuideNote(client, variables);
         }),
+      onError: (error) => {
+        toastFromHostError(error, "Couldn't add the note to the guide.");
+      },
     }),
   );
 }
