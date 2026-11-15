@@ -20,7 +20,7 @@ import {
   hostClientUnavailableError,
   withHostMutationLifecycleBoundary,
 } from "@/hooks/host/use-host-query";
-import type { HostRpcRegistry } from "@/lib/host";
+import { useHostClient, type HostRpcRegistry } from "@/lib/host";
 import { toastFromHostError } from "@/lib/host-error-toast";
 import { epicMutationKeys, hostQueryKeys } from "@/lib/query-keys";
 import { withHostQueryErrorBoundary } from "@/lib/query/host-query-error-boundary";
@@ -55,8 +55,25 @@ interface TicketStatusContext {
  * callback is the mutation's own, never one handed to a single call: a row
  * checked off under the Open filter leaves the list at once, so the
  * component that started the write is gone before the host answers.
+ *
+ * Reads the app-wide host, as the pane's tickets do. Mount only from the
+ * To-dos tab.
  */
-export function useEpicUpdateArtifactStatusDirect(
+export function useEpicUpdateArtifactStatusDirect(): UseMutationResult<
+  void,
+  HostRpcError,
+  UpdateTicketStatusVariables,
+  TicketStatusContext
+> {
+  return useEpicUpdateArtifactStatusDirectForClient(useHostClient());
+}
+
+/**
+ * {@link useEpicUpdateArtifactStatusDirect} on `client`'s host, which must be
+ * the host the pane's tickets were read from: their cached reads are the ones
+ * it edits.
+ */
+export function useEpicUpdateArtifactStatusDirectForClient(
   client: Pick<
     HostClient<HostRpcRegistry>,
     "request" | "getActiveHostId"

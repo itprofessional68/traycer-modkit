@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/unary-schemas";
 import { nextCallOf } from "@/__tests__/next-call";
 import { allTicketsQueryKey } from "@/hooks/epic/use-epic-mention-tickets-query";
-import { useEpicUpdateArtifactStatusDirect } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
+import { useEpicUpdateArtifactStatusDirectForClient } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 
 const HOST = "host-1";
 
@@ -58,11 +58,16 @@ function renderWrite() {
   const queryClient = new QueryClient();
   queryClient.setQueryData(allTicketsQueryKey(HOST), TICKETS);
   const client = { getActiveHostId: () => HOST, request: hoisted.request };
-  const view = renderHook(() => useEpicUpdateArtifactStatusDirect(client), {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-    ),
-  });
+  const view = renderHook(
+    () => useEpicUpdateArtifactStatusDirectForClient(client),
+    {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      ),
+    },
+  );
   const cachedStatus = () =>
     queryClient.getQueryData<EpicMentionTicketsResponse>(
       allTicketsQueryKey(HOST),
@@ -95,7 +100,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-describe("useEpicUpdateArtifactStatusDirect", () => {
+describe("useEpicUpdateArtifactStatusDirectForClient", () => {
   afterEach(() => {
     hoisted.request.mockReset();
     hoisted.peek.mockReset();

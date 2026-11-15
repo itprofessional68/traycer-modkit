@@ -1,45 +1,152 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import type { EpicMentionTicketSuggestion } from "@traycer/protocol/host/epic/unary-schemas";
+import {
+  buildHistoryItemsFromTasks,
+  EMPTY_LOCAL_HOMED_TASK_IDS,
+} from "@/components/home/data/home-page.data";
+import { TodoRow } from "@/components/todos/todo-row";
+import {
+  filterTodoGroupsByRepo,
+  todoRepoOptions,
+  todoReposByEpicId,
+} from "@/components/todos/todo-repos";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEpicMentionTicketsQuery } from "@/hooks/epic/use-epic-mention-tickets-query";
-import { groupTodos } from "@/lib/todos/group-todos";
+import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query";
+import { groupTodos, type TodoFilter } from "@/lib/todos/group-todos";
+
+const NO_TICKETS: ReadonlyArray<EpicMentionTicketSuggestion> = [];
+/** The repo filter's "no filter" item; Radix gives `""` its own meaning. */
+const ALL_REPOS = "all-repos";
 
 /**
- * The To-dos tab: every open ticket the app-wide host has indexed, grouped
- * by Task.
+ * The To-dos tab: the tickets the app-wide host has indexed, grouped by
+ * Task, to check off. Repo names come from the Task list.
  */
 export function TodosSurface(): ReactNode {
   const tickets = useEpicMentionTicketsQuery();
-  const groups = useMemo(
-    () => groupTodos(tickets.data?.entries ?? [], "open"),
-    [tickets.data],
+  const { tasks, currentUserId } = useCloudEpicTasksQuery(undefined, {
+    enabled: true,
+  });
+  const [filter, setFilter] = useState<TodoFilter>("open");
+  const [pickedRepo, setPickedRepo] = useState<string | null>(null);
+
+  const entries = tickets.data?.entries ?? NO_TICKETS;
+  // `nowMs` only feeds the items' time labels, which this surface never shows.
+  const reposByEpicId = useMemo(
+    () =>
+      todoReposByEpicId(
+        buildHistoryItemsFromTasks(
+          tasks,
+          0,
+          currentUserId,
+          EMPTY_LOCAL_HOMED_TASK_IDS,
+        ),
+      ),
+    [tasks, currentUserId],
   );
+  const allGroups = useMemo(() => groupTodos(entries, "all"), [entries]);
+  const repoOptions = useMemo(
+    () => todoRepoOptions(allGroups, reposByEpicId),
+    [allGroups, reposByEpicId],
+  );
+  // A repo that has gone from the list stops filtering rather than hiding
+  // every ticket behind a choice the picker no longer shows.
+  const repo =
+    pickedRepo !== null && repoOptions.includes(pickedRepo) ? pickedRepo : null;
+  const groups = useMemo(
+    () =>
+      filterTodoGroupsByRepo(
+        filter === "all" ? allGroups : groupTodos(entries, "open"),
+        reposByEpicId,
+        repo,
+      ),
+    [allGroups, entries, reposByEpicId, filter, repo],
+  );
+
   return (
     <div
       className="flex h-full min-h-0 w-full flex-col gap-4 overflow-y-auto p-6"
       data-testid="todos-surface"
     >
-      <h1 className="text-ui-lg font-semibold">To-dos</h1>
+      <div className="flex flex-col gap-1">
+        <h1 className="text-ui-lg font-semibold">To-dos</h1>
+        <p className="text-ui-xs text-muted-foreground">
+          Shows up to 100 tickets from the Tasks this machine knows.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Tabs
+          value={filter}
+          onValueChange={(next) => {
+            if (next === "open" || next === "all") setFilter(next);
+          }}
+        >
+          <TabsList aria-label="Tickets to show">
+            <TabsTrigger value="open">Open</TabsTrigger>
+            <TabsTrigger value="all">All</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {repoOptions.length > 0 ? (
+          <Select
+            value={repo ?? ALL_REPOS}
+            onValueChange={(next) => {
+              setPickedRepo(next === ALL_REPOS ? null : next);
+            }}
+          >
+            <SelectTrigger aria-label="Repo" size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL_REPOS}>All repos</SelectItem>
+              {repoOptions.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
       {tickets.isError ? (
         <p className="text-ui-sm text-muted-foreground">
           Couldn&apos;t load your tickets.
         </p>
       ) : null}
       {tickets.data !== undefined && groups.length === 0 ? (
-        <p className="text-ui-sm text-muted-foreground">Nothing left to do.</p>
+        <p className="text-ui-sm text-muted-foreground">
+          {filter === "open" ? "Nothing left to do." : "No tickets."}
+        </p>
       ) : null}
-      {groups.map((group) => (
-        <section key={group.epicId} className="flex flex-col gap-1">
-          <h2 className="text-ui-xs font-medium text-muted-foreground">
-            {group.epicTitle}
-          </h2>
-          <ul className="flex flex-col gap-1">
-            {group.rows.map((row) => (
-              <li key={row.artifactId} className="text-ui-sm">
-                {row.title}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groups.map((group) => {
+        const repos = reposByEpicId.get(group.epicId) ?? [];
+        return (
+          <section
+            key={group.epicId}
+            aria-label={group.epicTitle}
+            className="flex flex-col gap-1"
+          >
+            <h2 className="flex min-w-0 items-baseline gap-2 text-ui-xs font-medium text-muted-foreground">
+              <span className="truncate">{group.epicTitle}</span>
+              {repos.length > 0 ? (
+                <span className="truncate font-normal">{repos.join(", ")}</span>
+              ) : null}
+            </h2>
+            <ul className="flex flex-col gap-1">
+              {group.rows.map((row) => (
+                <TodoRow key={row.artifactId} row={row} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
