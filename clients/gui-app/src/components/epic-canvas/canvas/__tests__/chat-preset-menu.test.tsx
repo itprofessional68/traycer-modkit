@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatRunSettings } from "@traycer/protocol/persistence/epic/schemas";
 import {
@@ -15,7 +22,8 @@ import {
 } from "@/stores/agents/agent-presets-store";
 
 const hoisted = vi.hoisted(() => ({
-  mutate: vi.fn(),
+  configure: vi.fn<(request: unknown) => Promise<unknown>>(),
+  toastSuccess: vi.fn(),
   schemaVersion: { major: 7, minor: 1 },
 }));
 
@@ -25,9 +33,19 @@ vi.mock("@/hooks/host/use-host-client-for-host-id", () => ({
 vi.mock("@/hooks/host/use-host-supports-method", () => ({
   useHostMethodSchemaVersion: () => hoisted.schemaVersion,
 }));
-vi.mock("@/hooks/agent/use-configure-agent-mutation", () => ({
-  useAgentConfigure: () => ({ mutate: hoisted.mutate, isPending: false }),
-}));
+// A real TanStack mutation over a fake host call: the menu closes on select,
+// and only a real mutation drops a callback handed to that one call when its
+// component unmounts.
+vi.mock("@/hooks/agent/use-configure-agent-mutation", async () => {
+  const { useMutation } = await import("@tanstack/react-query");
+  return {
+    useAgentConfigure: () =>
+      useMutation({
+        mutationFn: (request: unknown) => hoisted.configure(request),
+      }),
+  };
+});
+vi.mock("sonner", () => ({ toast: { success: hoisted.toastSuccess } }));
 
 const SETTINGS: ChatRunSettings = {
   ultracode: false,
@@ -56,14 +74,16 @@ const PRESET: AgentPresetDraft = {
 
 function openMenu(): void {
   render(
-    <ContextMenu>
-      <ContextMenuTrigger>
-        <span data-testid="tab">tab</span>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ChatPresetTabMenu epicId="epic-1" chatId="chat-1" hostId="host-1" />
-      </ContextMenuContent>
-    </ContextMenu>,
+    <QueryClientProvider client={new QueryClient()}>
+      <ContextMenu>
+        <ContextMenuTrigger>
+          <span data-testid="tab">tab</span>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ChatPresetTabMenu epicId="epic-1" chatId="chat-1" hostId="host-1" />
+        </ContextMenuContent>
+      </ContextMenu>
+    </QueryClientProvider>,
   );
   fireEvent.contextMenu(screen.getByTestId("tab"));
 }
@@ -82,33 +102,37 @@ describe("Apply preset on a chat tab", () => {
 
   afterEach(() => {
     cleanup();
-    hoisted.mutate.mockReset();
+    hoisted.configure.mockReset();
+    hoisted.toastSuccess.mockReset();
     hoisted.schemaVersion = { major: 7, minor: 1 };
     getChatSessionRegistry().disposeAll();
   });
 
-  it("moves the chat onto the preset, keeping its routing", async () => {
+  it("moves the chat onto the preset, keeping its routing, and says so once it lands", async () => {
+    hoisted.configure.mockResolvedValue({});
     openChatTabSession("owner", SETTINGS);
     openMenu();
     await openPresets();
     fireEvent.click(await screen.findByText("Careful Claude"));
 
-    expect(hoisted.mutate).toHaveBeenCalledWith(
-      {
-        epicId: "epic-1",
-        senderAgentId: "chat-1",
-        agentId: "chat-1",
-        harnessId: "claude",
-        model: "sonnet",
-        profileSelection: { kind: "profile", profileId: "work" },
-        reasoningEffort: "high",
-        fastMode: false,
-        serviceTier: null,
-        permissionMode: "supervised",
-        routing: null,
-      },
-      expect.anything(),
-    );
+    await waitFor(() => {
+      expect(hoisted.toastSuccess).toHaveBeenCalledWith(
+        "Applied Careful Claude.",
+      );
+    });
+    expect(hoisted.configure).toHaveBeenCalledWith({
+      epicId: "epic-1",
+      senderAgentId: "chat-1",
+      agentId: "chat-1",
+      harnessId: "claude",
+      model: "sonnet",
+      profileSelection: { kind: "profile", profileId: "work" },
+      reasoningEffort: "high",
+      fastMode: false,
+      serviceTier: null,
+      permissionMode: "supervised",
+      routing: null,
+    });
   });
 
   it("is not offered when the host has no presets", () => {

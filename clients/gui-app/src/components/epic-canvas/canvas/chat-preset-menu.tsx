@@ -89,14 +89,21 @@ export function ChatPresetTabMenu(props: ChatPresetTabMenuProps) {
                 }
                 data-testid="chat-preset-item"
                 onSelect={() => {
-                  configure.mutate(
-                    presetConfigureRequest({ epicId, chatId, preset }),
-                    {
-                      onSuccess: () => {
+                  // `mutateAsync`, not a callback handed to `mutate`: choosing
+                  // an item closes the menu, which unmounts this component
+                  // before the host answers, and TanStack drops a per-call
+                  // callback whose component is gone. The continuation reads
+                  // no component state. A refusal is toasted by the hook.
+                  void configure
+                    .mutateAsync(
+                      presetConfigureRequest({ epicId, chatId, preset }),
+                    )
+                    .then(
+                      () => {
                         toast.success(`Applied ${preset.name}.`);
                       },
-                    },
-                  );
+                      () => undefined,
+                    );
                 }}
               >
                 {preset.name}
