@@ -4,6 +4,8 @@ export const epicMutationKeys = {
   discardCreated: () => ["epic.discardCreated"] as const,
   sweepWorktrees: () => ["epic.sweepWorktrees"] as const,
   setPinned: () => ["epic.setPinned"] as const,
+  /** A ticket's status written from the To-dos pane, outside its Task. */
+  updateArtifactStatus: () => ["epic.updateArtifactStatus"] as const,
   recordViewed: () => ["epic.recordViewed"] as const,
   sendQueuedInvites: () => ["epic.sendQueuedInvites"] as const,
   createChat: () => ["epic.createChat"] as const,

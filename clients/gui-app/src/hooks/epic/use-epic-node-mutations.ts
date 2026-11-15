@@ -280,20 +280,7 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   }
   const mutateAsync = async (variables: Variables): Promise<Response> => {
     try {
-      await enqueueAndWait(
-        handle,
-        {
-          kind: "update-artifact-status",
-          artifactId: variables.artifactId,
-          artifactType: variables.artifactType,
-          status: variables.status,
-        },
-        "epic.updateArtifactStatus",
-      );
-      Analytics.getInstance().track(AnalyticsEvent.ArtifactStatusChanged, {
-        kind: variables.artifactType,
-        status: analyticsTicketStatus(variables.status),
-      });
+      await updateArtifactStatusThroughOpenEpic(handle, variables);
       return { updated: true };
     } catch (error: unknown) {
       const normalized =
@@ -315,6 +302,44 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
     void mutateAsync(variables).then(undefined, () => {});
   };
   return { mutate, mutateAsync, isPending };
+}
+
+/**
+ * Writes a ticket's or story's status through an open Task's write queue,
+ * which shows it in that Task at once and settles it with the host, then
+ * records it. Throws the queue's refusal. Not a hook: the To-dos pane writes
+ * into whichever Task is open (`getOpenEpicRegistry().peek`), from outside it.
+ */
+export async function updateArtifactStatusThroughOpenEpic(
+  handle: OpenEpicStoreHandle,
+  variables: {
+    readonly artifactId: string;
+    readonly artifactType: "ticket" | "story";
+    readonly status: 0 | 1 | 2;
+  },
+): Promise<void> {
+  await enqueueAndWait(
+    handle,
+    {
+      kind: "update-artifact-status",
+      artifactId: variables.artifactId,
+      artifactType: variables.artifactType,
+      status: variables.status,
+    },
+    "epic.updateArtifactStatus",
+  );
+  trackArtifactStatusChanged(variables.artifactType, variables.status);
+}
+
+/** The status-change event, for each path that writes one. */
+export function trackArtifactStatusChanged(
+  kind: "ticket" | "story",
+  status: number,
+): void {
+  Analytics.getInstance().track(AnalyticsEvent.ArtifactStatusChanged, {
+    kind,
+    status: analyticsTicketStatus(status),
+  });
 }
 
 function analyticsTicketStatus(status: number): 0 | 1 | 2 {
