@@ -19,10 +19,10 @@ const ALL_TICKETS_PARAMS: RequestOfMethod<
  * Tasks, so no one Task's session host answers for it. Mount only from the
  * To-dos tab.
  *
- * A ticket changes in its own Task, by an agent or on another machine as
- * often as here, and nothing tells this read. So it is never fresh: it is
- * read again each time the tab is shown (`visible` turning true) and when the
- * window regains focus, and it is not read while the tab is hidden.
+ * A status write here or in a Task open in this window reads it again; a
+ * change by an agent or on another machine tells it nothing. So it is never
+ * fresh: it is read again each time the tab is shown (`visible` turning
+ * true) and when the window regains focus, and not while the tab is hidden.
  */
 export function useEpicMentionTicketsQuery(visible: boolean) {
   const client = useHostClient();

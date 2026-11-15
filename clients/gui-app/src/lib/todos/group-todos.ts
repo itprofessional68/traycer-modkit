@@ -33,6 +33,29 @@ export function ticketStatusOf(status: number | null): TicketStatus {
 }
 
 /**
+ * A ticket's key among pending writes. No host: a ticket's ids are the same
+ * on every host. Ids are UUIDs, so the separator cannot occur in either.
+ */
+export function ticketKey(epicId: string, artifactId: string): string {
+  return `${epicId}/${artifactId}`;
+}
+
+/**
+ * The tickets with each pending write's status laid over the read's, so a
+ * read that lands while a write is in flight cannot show the old status.
+ */
+export function withPendingStatuses(
+  tickets: ReadonlyArray<EpicMentionTicketSuggestion>,
+  pending: ReadonlyMap<string, TicketStatus>,
+): ReadonlyArray<EpicMentionTicketSuggestion> {
+  if (pending.size === 0) return tickets;
+  return tickets.map((ticket) => {
+    const status = pending.get(ticketKey(ticket.epicId, ticket.artifactId));
+    return status === undefined ? ticket : { ...ticket, status };
+  });
+}
+
+/**
  * Tickets grouped by their Task. Rows are newest first, and Tasks are ordered
  * by their newest row, so the Task worked on last leads. With `open`, done
  * tickets are left out, and a Task with none left is left out with them.

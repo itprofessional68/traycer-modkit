@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   useMutation,
   useQueryClient,
@@ -21,6 +22,10 @@ import {
   withHostMutationLifecycleBoundary,
 } from "@/hooks/host/use-host-query";
 import { useHostClient, type HostRpcRegistry } from "@/lib/host";
+import {
+  selectMutationVariables,
+  useMutationStateOf,
+} from "@/hooks/use-mutation-state-of";
 import { toastFromHostError } from "@/lib/host-error-toast";
 import { epicMutationKeys, hostQueryKeys } from "@/lib/query-keys";
 import { withHostQueryErrorBoundary } from "@/lib/query/host-query-error-boundary";
@@ -28,6 +33,7 @@ import {
   getOpenEpicRegistry,
   isEpicSessionHandleDead,
 } from "@/lib/registries/epic-session-registry";
+import { ticketKey } from "@/lib/todos/group-todos";
 
 export interface UpdateTicketStatusVariables {
   readonly epicId: string;
@@ -36,14 +42,11 @@ export interface UpdateTicketStatusVariables {
 }
 
 interface TicketStatusContext {
-  /** Every cached ticket read of the host the To-dos pane reads. */
-  readonly ticketsScope: QueryKey;
   /**
-   * This ticket's status in each of those reads before the write, to put
-   * back if it fails. Only this ticket's: another row's write may still be
-   * in flight, and its pending status must survive this one's rollback.
+   * The ticket reads of the host the write was sent from, captured when it
+   * started: the app-wide host can change while it is in flight.
    */
-  readonly previousStatuses: ReadonlyArray<readonly [QueryKey, number | null]>;
+  readonly ticketsScope: QueryKey;
 }
 
 /**
@@ -52,13 +55,15 @@ interface TicketStatusContext {
  * through its own queue, so its projection and pending state stay right;
  * any other goes straight to `epic.updateArtifactStatus` on the pane's host.
  *
- * The ticket's row moves at once (an optimistic edit of the cached ticket
- * reads), and the edit is undone with a toast if the write fails. The reads
- * are refreshed once the last of these writes settles, not after each: a read
- * landing while another is in flight would drop that one's pending row. Every
- * callback is the mutation's own, never one handed to a single call: a row
- * checked off under the Open filter leaves the list at once, so the
- * component that started the write is gone before the host answers.
+ * The cached reads are not edited while the write is in flight: the pane
+ * lays the pending status over them ({@link usePendingTicketStatuses}), so
+ * a read landing meanwhile cannot undo it, and a failed write needs no
+ * rollback. Success writes the status into the reads before the overlay
+ * lifts, so the row does not flicker back; then every host's ticket reads
+ * are read again. Every callback is the mutation's own, never one handed to
+ * a single call: a row checked off under the Open filter leaves the list at
+ * once, so the component that started the write is gone before the host
+ * answers.
  *
  * Reads the app-wide host, as the pane's tickets do. Mount only from the
  * To-dos tab.
@@ -92,10 +97,8 @@ export function useEpicUpdateArtifactStatusDirectForClient(
   return useMutation(
     withHostMutationLifecycleBoundary("epic.updateArtifactStatus", {
       mutationKey: epicMutationKeys.updateArtifactStatus(),
-      onMutate: async (variables): Promise<TicketStatusContext> => {
-        // Captured here, not re-read on settle: the app-wide host can change
-        // while the write is in flight, and its answer belongs to this one.
-        const ticketsScope = hostQueryKeys.methodScope(
+      onMutate: (): TicketStatusContext => ({
+        ticketsScope: hostQueryKeys.methodScope(
           hostRpcServingTierHostId(
             "epic.mentionTickets",
             client?.getActiveHostId() ?? null,
@@ -103,29 +106,8 @@ export function useEpicUpdateArtifactStatusDirectForClient(
             null,
           ),
           "epic.mentionTickets",
-        );
-        await queryClient.cancelQueries({ queryKey: ticketsScope });
-        const previousStatuses = queryClient
-          .getQueriesData<EpicMentionTicketsResponse>({
-            queryKey: ticketsScope,
-          })
-          .flatMap(([queryKey, data]) => {
-            const entry = data?.entries.find((candidate) =>
-              isTicket(candidate, variables),
-            );
-            return entry === undefined
-              ? []
-              : [[queryKey, entry.status] as const];
-          });
-        queryClient.setQueriesData<EpicMentionTicketsResponse>(
-          { queryKey: ticketsScope },
-          (data) =>
-            data === undefined
-              ? data
-              : withTicketStatus(data, variables, variables.status),
-        );
-        return { ticketsScope, previousStatuses };
-      },
+        ),
+      }),
       mutationFn: (variables) =>
         withHostQueryErrorBoundary("epic.updateArtifactStatus", async () => {
           // `peek`, not `get`: a write from outside the Task is not a visit,
@@ -150,51 +132,86 @@ export function useEpicUpdateArtifactStatusDirectForClient(
           });
           trackArtifactStatusChanged("ticket", variables.status);
         }),
-      onError: (error, variables, context) => {
-        if (context !== undefined) {
-          for (const [queryKey, status] of context.previousStatuses) {
-            queryClient.setQueryData<EpicMentionTicketsResponse>(
-              queryKey,
-              (data) =>
-                data === undefined
-                  ? data
-                  : withTicketStatus(data, variables, status),
-            );
-          }
-        }
+      onSuccess: (_data, variables, context) => {
+        queryClient.setQueriesData<EpicMentionTicketsResponse>(
+          { queryKey: context.ticketsScope },
+          (data) =>
+            data === undefined ? data : withTicketStatus(data, variables),
+        );
+      },
+      onError: (error) => {
         toastFromHostError(error, "Couldn't update the ticket.");
       },
-      onSettled: (_data, _error, _variables, context) => {
-        if (context === undefined) return;
-        // This write still counts as in flight here.
-        const writing = queryClient.isMutating({
-          mutationKey: epicMutationKeys.updateArtifactStatus(),
+      onSettled: () => {
+        // Every host's: the app-wide host may have moved since the write
+        // started, and the list now shown is the new host's.
+        void queryClient.invalidateQueries({
+          predicate: (query) =>
+            hostQueryKeys.matchesMethodOnAnyHost(
+              query.queryKey,
+              "epic.mentionTickets",
+            ),
         });
-        if (writing > 1) return;
-        void queryClient.invalidateQueries({ queryKey: context.ticketsScope });
       },
     }),
   );
 }
 
-function isTicket(
-  entry: EpicMentionTicketsResponse["entries"][number],
-  ticket: Pick<UpdateTicketStatusVariables, "epicId" | "artifactId">,
-): boolean {
+/**
+ * The status each ticket is being set to by a To-dos write still in flight,
+ * by {@link ticketKey}. The pane lays it over every ticket read, and a row
+ * remounted mid-write reads from it that it is busy. With two writes to one
+ * ticket, the newer wins.
+ */
+export function usePendingTicketStatuses(): ReadonlyMap<string, TicketStatus> {
+  const pending = useMutationStateOf(
+    { mutationKey: epicMutationKeys.updateArtifactStatus(), status: "pending" },
+    selectMutationVariables,
+  );
+  return useMemo(
+    () =>
+      new Map(
+        pending.flatMap((variables) =>
+          isUpdateTicketStatusVariables(variables)
+            ? [
+                [
+                  ticketKey(variables.epicId, variables.artifactId),
+                  variables.status,
+                ] as const,
+              ]
+            : [],
+        ),
+      ),
+    [pending],
+  );
+}
+
+function isUpdateTicketStatusVariables(
+  value: unknown,
+): value is UpdateTicketStatusVariables {
   return (
-    entry.epicId === ticket.epicId && entry.artifactId === ticket.artifactId
+    typeof value === "object" &&
+    value !== null &&
+    "epicId" in value &&
+    typeof value.epicId === "string" &&
+    "artifactId" in value &&
+    typeof value.artifactId === "string" &&
+    "status" in value &&
+    (value.status === 0 || value.status === 1 || value.status === 2)
   );
 }
 
 function withTicketStatus(
   data: EpicMentionTicketsResponse,
-  ticket: Pick<UpdateTicketStatusVariables, "epicId" | "artifactId">,
-  status: number | null,
+  variables: UpdateTicketStatusVariables,
 ): EpicMentionTicketsResponse {
   return {
     ...data,
     entries: data.entries.map((entry) =>
-      isTicket(entry, ticket) ? { ...entry, status } : entry,
+      entry.epicId === variables.epicId &&
+      entry.artifactId === variables.artifactId
+        ? { ...entry, status: variables.status }
+        : entry,
     ),
   };
 }

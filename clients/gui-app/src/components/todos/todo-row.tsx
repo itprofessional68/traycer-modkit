@@ -15,15 +15,19 @@ import type { TodoRow as TodoRowData } from "@/lib/todos/group-todos";
  * its title, which opens the ticket in its Task. In progress shows unchecked
  * with a badge.
  */
-export function TodoRow(props: { readonly row: TodoRowData }): ReactNode {
-  const { row } = props;
+export function TodoRow(props: {
+  readonly row: TodoRowData;
+  /** A write to this ticket is in flight, from this row or an earlier one. */
+  readonly pending: boolean;
+}): ReactNode {
+  const { row, pending } = props;
   const navigate = useNavigate();
   const write = useEpicUpdateArtifactStatusDirect();
   return (
     <li className="flex min-w-0 items-center gap-2">
       <Checkbox
         checked={row.status === 2}
-        disabled={write.isPending}
+        disabled={pending}
         aria-label={row.title}
         onCheckedChange={(checked) => {
           write.mutate({
@@ -61,7 +65,7 @@ export function TodoRow(props: { readonly row: TodoRowData }): ReactNode {
           In progress
         </Badge>
       ) : null}
-      {write.isPending ? (
+      {pending ? (
         <AgentSpinningDots
           className={undefined}
           testId={undefined}

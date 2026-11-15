@@ -21,8 +21,14 @@ import {
 import { AgentSpinningDots } from "@/components/ui/agent-spinning-dots";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEpicMentionTicketsQuery } from "@/hooks/epic/use-epic-mention-tickets-query";
+import { usePendingTicketStatuses } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query";
-import { groupTodos, type TodoFilter } from "@/lib/todos/group-todos";
+import {
+  groupTodos,
+  ticketKey,
+  withPendingStatuses,
+  type TodoFilter,
+} from "@/lib/todos/group-todos";
 
 const NO_TICKETS: ReadonlyArray<EpicMentionTicketSuggestion> = [];
 /** The repo filter's "no filter" item; Radix gives `""` its own meaning. */
@@ -40,7 +46,11 @@ export function TodosSurface(): ReactNode {
   const [filter, setFilter] = useState<TodoFilter>("open");
   const [pickedRepo, setPickedRepo] = useState<string | null>(null);
 
-  const entries = tickets.data?.entries ?? NO_TICKETS;
+  const pending = usePendingTicketStatuses();
+  const entries = useMemo(
+    () => withPendingStatuses(tickets.data?.entries ?? NO_TICKETS, pending),
+    [tickets.data, pending],
+  );
   // `nowMs` only feeds the items' time labels, which this surface never shows.
   const reposByEpicId = useMemo(
     () =>
@@ -153,7 +163,11 @@ export function TodosSurface(): ReactNode {
             </h2>
             <ul className="flex flex-col gap-1">
               {group.rows.map((row) => (
-                <TodoRow key={row.artifactId} row={row} />
+                <TodoRow
+                  key={row.artifactId}
+                  row={row}
+                  pending={pending.has(ticketKey(row.epicId, row.artifactId))}
+                />
               ))}
             </ul>
           </section>

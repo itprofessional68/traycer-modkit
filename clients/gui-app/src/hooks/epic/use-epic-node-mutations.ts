@@ -11,7 +11,7 @@ import { useEpicSessionHostClient } from "@/hooks/epic/use-epic-session-host-cli
 import { toastFromHostError } from "@/lib/host-error-toast";
 import { appLogger } from "@/lib/logger";
 import { Analytics, AnalyticsEvent } from "@/lib/analytics";
-import { epicMutationKeys, hostQueryKeys } from "@/lib/query-keys";
+import { hostQueryKeys } from "@/lib/query-keys";
 import { useOpenEpicHandle } from "@/providers/use-open-epic-handle";
 import type { CommandRecord } from "@traycer-clients/shared/replica-runtime";
 import { HostRpcError } from "@traycer-clients/shared/host-transport/host-messenger";
@@ -282,7 +282,7 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   const mutateAsync = async (variables: Variables): Promise<Response> => {
     try {
       await updateArtifactStatusThroughOpenEpic(handle, variables);
-      refreshTicketReadsUnlessWriting(queryClient);
+      refreshTicketReads(queryClient);
       return { updated: true };
     } catch (error: unknown) {
       const normalized =
@@ -308,18 +308,11 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
 
 /**
  * Reads ticket lists again after a status write in a Task, so a To-dos tab
- * shown beside it catches up. Held while the pane's own writes are in flight:
- * a read then would drop their pending rows, and the last of them reads
- * again when it settles.
+ * shown beside it catches up. Every host's: a ticket's ids are the same on
+ * all of them. A To-dos write still in flight keeps its row, laid over the
+ * new read.
  */
-function refreshTicketReadsUnlessWriting(queryClient: QueryClient): void {
-  if (
-    queryClient.isMutating({
-      mutationKey: epicMutationKeys.updateArtifactStatus(),
-    }) > 0
-  ) {
-    return;
-  }
+function refreshTicketReads(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({
     predicate: (query) =>
       hostQueryKeys.matchesMethodOnAnyHost(
