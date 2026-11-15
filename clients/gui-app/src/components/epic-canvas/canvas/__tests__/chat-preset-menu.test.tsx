@@ -1,10 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatRunSettings } from "@traycer/protocol/persistence/epic/schemas";
@@ -13,6 +7,7 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { nextCallOf } from "@/__tests__/next-call";
 import { ChatPresetTabMenu } from "@/components/epic-canvas/canvas/chat-preset-menu";
 import { openChatTabSession } from "@/components/epic-canvas/canvas/__tests__/chat-tab-menu-session";
 import { getChatSessionRegistry } from "@/lib/registries/chat-session-registry";
@@ -21,31 +16,30 @@ import {
   type AgentPresetDraft,
 } from "@/stores/agents/agent-presets-store";
 
-const hoisted = vi.hoisted(() => ({
-  configure: vi.fn<(request: unknown) => Promise<unknown>>(),
-  toastSuccess: vi.fn(),
-  schemaVersion: { major: 7, minor: 1 },
-}));
+const hoisted = vi.hoisted(() => {
+  const request =
+    vi.fn<(method: string, params: unknown) => Promise<unknown>>();
+  return {
+    request,
+    // The host's request boundary is the one seam faked: the configure hook,
+    // its error toast and TanStack's mutation all run as they do in the app.
+    hostClient: { getActiveHostId: () => "host-1", request },
+    toastSuccess: vi.fn<(message: string) => void>(),
+    toastFromHostError: vi.fn<(error: unknown, fallback: string) => void>(),
+    schemaVersion: { major: 7, minor: 1 },
+  };
+});
 
 vi.mock("@/hooks/host/use-host-client-for-host-id", () => ({
-  useHostClientForHostId: () => null,
+  useHostClientForHostId: () => hoisted.hostClient,
 }));
 vi.mock("@/hooks/host/use-host-supports-method", () => ({
   useHostMethodSchemaVersion: () => hoisted.schemaVersion,
 }));
-// A real TanStack mutation over a fake host call: the menu closes on select,
-// and only a real mutation drops a callback handed to that one call when its
-// component unmounts.
-vi.mock("@/hooks/agent/use-configure-agent-mutation", async () => {
-  const { useMutation } = await import("@tanstack/react-query");
-  return {
-    useAgentConfigure: () =>
-      useMutation({
-        mutationFn: (request: unknown) => hoisted.configure(request),
-      }),
-  };
-});
 vi.mock("sonner", () => ({ toast: { success: hoisted.toastSuccess } }));
+vi.mock("@/lib/host-error-toast", () => ({
+  toastFromHostError: hoisted.toastFromHostError,
+}));
 
 const SETTINGS: ChatRunSettings = {
   ultracode: false,
@@ -102,25 +96,23 @@ describe("Apply preset on a chat tab", () => {
 
   afterEach(() => {
     cleanup();
-    hoisted.configure.mockReset();
+    hoisted.request.mockReset();
     hoisted.toastSuccess.mockReset();
+    hoisted.toastFromHostError.mockReset();
     hoisted.schemaVersion = { major: 7, minor: 1 };
     getChatSessionRegistry().disposeAll();
   });
 
   it("moves the chat onto the preset, keeping its routing, and says so once it lands", async () => {
-    hoisted.configure.mockResolvedValue({});
+    hoisted.request.mockResolvedValue({});
+    const applied = nextCallOf(hoisted.toastSuccess);
     openChatTabSession("owner", SETTINGS);
     openMenu();
     await openPresets();
     fireEvent.click(await screen.findByText("Careful Claude"));
 
-    await waitFor(() => {
-      expect(hoisted.toastSuccess).toHaveBeenCalledWith(
-        "Applied Careful Claude.",
-      );
-    });
-    expect(hoisted.configure).toHaveBeenCalledWith({
+    expect(await applied).toEqual(["Applied Careful Claude."]);
+    expect(hoisted.request).toHaveBeenCalledWith("agent.configure", {
       epicId: "epic-1",
       senderAgentId: "chat-1",
       agentId: "chat-1",
@@ -133,6 +125,19 @@ describe("Apply preset on a chat tab", () => {
       permissionMode: "supervised",
       routing: null,
     });
+  });
+
+  it("reports a refusal once the menu is gone, and claims nothing applied", async () => {
+    hoisted.request.mockRejectedValue(new Error("not your agent"));
+    const refused = nextCallOf(hoisted.toastFromHostError);
+    openChatTabSession("owner", SETTINGS);
+    openMenu();
+    await openPresets();
+    fireEvent.click(await screen.findByText("Careful Claude"));
+
+    const [, fallback] = await refused;
+    expect(fallback).toBe("Couldn't apply the preset to this agent.");
+    expect(hoisted.toastSuccess).not.toHaveBeenCalled();
   });
 
   it("is not offered when the host has no presets", () => {
