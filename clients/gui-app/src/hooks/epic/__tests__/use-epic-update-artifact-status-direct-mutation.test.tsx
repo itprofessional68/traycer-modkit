@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/unary-schemas";
 import { nextCallOf } from "@/__tests__/next-call";
 import type { HostRpcRegistry } from "@/lib/host";
@@ -11,6 +11,7 @@ import {
   usePendingTicketStatuses,
 } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 import { ticketKey } from "@/lib/todos/group-todos";
+import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
 
 const HOST = "host-1";
 
@@ -138,10 +139,10 @@ function nextRequest(answer: Promise<unknown>): Promise<[string, unknown]> {
   });
 }
 
-function deferred() {
-  let resolve: (value: unknown) => void = () => undefined;
+function deferred<T = unknown>() {
+  let resolve: (value: T) => void = () => undefined;
   let reject: (error: Error) => void = () => undefined;
-  const promise = new Promise<unknown>((res, rej) => {
+  const promise = new Promise<T>((res, rej) => {
     resolve = res;
     reject = rej;
   });
@@ -169,7 +170,12 @@ function expectAllTicketReadsInvalidated(
 }
 
 describe("useEpicUpdateArtifactStatusDirectForClient", () => {
+  beforeEach(() => {
+    useTicketStatusHoldsStore.setState({ holds: new Map() });
+  });
+
   afterEach(() => {
+    useTicketStatusHoldsStore.setState({ holds: new Map() });
     hoisted.request.mockReset();
     hoisted.peek.mockReset();
     hoisted.queue.enqueueWriteCommand.mockReset();
@@ -177,7 +183,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     hoisted.toastFromHostError.mockReset();
   });
 
-  it("keeps reads unchanged while pending, then patches every host and invalidates ticket reads", async () => {
+  it("holds the written status without changing cached reads, then invalidates ticket reads", async () => {
     hoisted.peek.mockReturnValue(null);
     const answer = deferred();
     const requested = nextRequest(answer.promise);
@@ -211,8 +217,13 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
         status: 2,
       },
     ]);
-    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.get(ticketKey("task-a", "ticket-1"))?.status,
+    ).toBe(2);
     expect(
       view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
     ).toBe(false);
@@ -221,47 +232,6 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       predicate: (query: { queryKey: unknown }) => boolean;
     };
     expectAllTicketReadsInvalidated(predicate);
-  });
-
-  it("does not let an older in-flight ticket read overwrite a successful patch", async () => {
-    hoisted.peek.mockReturnValue(null);
-    const view = renderWrite();
-    const oldRead = deferred<EpicMentionTicketsResponse>();
-    const oldReadStarted = vi.fn();
-    const readCall = nextCallOf(oldReadStarted);
-    const oldReadResult = view.queryClient.fetchQuery({
-      queryKey: OTHER_TICKETS_KEY,
-      queryFn: ({ signal }) => {
-        signal.throwIfAborted();
-        oldReadStarted();
-        return oldRead.promise;
-      },
-      staleTime: 0,
-    });
-    const handledOldRead = oldReadResult.then(
-      () => undefined,
-      () => undefined,
-    );
-    await readCall;
-
-    const answer = deferred();
-    const requested = nextRequest(answer.promise);
-    let written = Promise.resolve();
-    await act(async () => {
-      written = view.result.current.mutateAsync(DONE);
-      await requested;
-    });
-    await act(async () => {
-      answer.resolve({ updated: true });
-      await written;
-    });
-
-    await act(async () => {
-      oldRead.resolve(TICKETS);
-      await oldRead.promise;
-    });
-    await handledOldRead;
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
   });
 
   it("keeps the read unchanged and shows a toast when the host refuses", async () => {
@@ -279,6 +249,11 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     });
     view.rerender();
     expect(cachedStatus()).toBe(0);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.has(ticketKey("task-a", "ticket-1")),
+    ).toBe(false);
     expect(result.current.pending.get(ticketKey("task-a", "ticket-1"))).toBe(2);
 
     await act(async () => {
@@ -292,6 +267,11 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     expect(result.current.pending.has(ticketKey("task-a", "ticket-1"))).toBe(
       false,
     );
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.has(ticketKey("task-a", "ticket-1")),
+    ).toBe(false);
     expect(hoisted.toastFromHostError).toHaveBeenCalledWith(
       expect.anything(),
       "Couldn't update the ticket.",
@@ -299,7 +279,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
     expect(invalidate).toHaveBeenCalledTimes(1);
   });
 
-  it("reports the open Task's queued write as pending and patches every read on commit", async () => {
+  it("reports an open Task's queued write pending and holds its committed status", async () => {
     hoisted.peek.mockReturnValue(hoisted.openTask);
     hoisted.queue.enqueueWriteCommand.mockResolvedValue("command-1");
     const answer = deferred();
@@ -338,8 +318,13 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       await written;
     });
     view.rerender();
-    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(2);
-    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(2);
+    expect(view.cachedStatusOf("ticket-1", HOST)).toBe(0);
+    expect(view.cachedStatusOf("ticket-1", "host-2")).toBe(0);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.get(ticketKey("task-a", "ticket-1"))?.status,
+    ).toBe(2);
     expect(
       view.result.current.pending.has(ticketKey("task-a", "ticket-1")),
     ).toBe(false);
@@ -405,7 +390,7 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
       };
     }
 
-    it("reports both pending statuses without editing reads, then settles each independently", async () => {
+    it("keeps the other write pending after one fails, then holds its status", async () => {
       const view = startBoth();
       await view.requested;
       view.rerender();
@@ -431,12 +416,27 @@ describe("useEpicUpdateArtifactStatusDirectForClient", () => {
         view.result.current.pending.get(ticketKey("task-a", "ticket-2")),
       ).toBe(1);
       expect(view.invalidate).toHaveBeenCalledTimes(1);
+      expect(
+        useTicketStatusHoldsStore
+          .getState()
+          .holds.has(ticketKey("task-a", "ticket-1")),
+      ).toBe(false);
+      expect(
+        useTicketStatusHoldsStore
+          .getState()
+          .holds.get(ticketKey("task-a", "ticket-2"))?.status,
+      ).toBeUndefined();
 
       view.second.resolve({ updated: true });
       await view.writeSecond;
       view.rerender();
 
-      expect(view.cachedStatusOf("ticket-2", HOST)).toBe(1);
+      expect(view.cachedStatusOf("ticket-2", HOST)).toBe(0);
+      expect(
+        useTicketStatusHoldsStore
+          .getState()
+          .holds.get(ticketKey("task-a", "ticket-2"))?.status,
+      ).toBe(1);
       expect(view.invalidate).toHaveBeenCalledTimes(2);
     });
   });

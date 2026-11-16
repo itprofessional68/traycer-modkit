@@ -100,6 +100,8 @@ import { toastFromOwnerHostBatchWriteFailures } from "@/lib/owner-host-write-err
 import type { RpcErrorCode } from "@traycer/protocol/framework/index";
 import { Analytics, AnalyticsEvent } from "@/lib/analytics";
 import { hostQueryKeys } from "@/lib/query-keys";
+import { ticketKey } from "@/lib/todos/group-todos";
+import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
 
 function makeError(code: RpcErrorCode): HostRpcError {
   return new HostRpcError({
@@ -136,6 +138,7 @@ function supersedeCommand(): void {
 }
 
 beforeEach(() => {
+  useTicketStatusHoldsStore.setState({ holds: new Map() });
   commandFixture.state.writeCommands = [];
   commandFixture.state.enqueueWriteCommand.mockReset();
   commandFixture.state.waitForWriteCommand.mockReset();
@@ -327,6 +330,34 @@ describe("useEpicUpdateArtifactStatus ticket reads", () => {
         queryKey: hostQueryKeys.method("host-2", "epic.listArtifacts", {}),
       }),
     ).toBe(false);
+  });
+
+  it("releases a To-dos status hold for the ticket after an in-Task write succeeds", async () => {
+    commitCommand();
+    const key = ticketKey(status.epicId, status.artifactId);
+    useTicketStatusHoldsStore.getState().hold(key, 2);
+    const { result } = renderHook(() =>
+      useEpicUpdateArtifactStatus("artifact-1"),
+    );
+
+    await result.current.mutateAsync({ ...status, status: 0 });
+
+    expect(useTicketStatusHoldsStore.getState().holds.has(key)).toBe(false);
+    expect(queryClientFixture.invalidateQueries).toHaveBeenCalledTimes(1);
+    const { predicate } = queryClientFixture.invalidateQueries.mock
+      .calls[0][0] as {
+      predicate: (query: { queryKey: unknown }) => boolean;
+    };
+    for (const hostId of ["host-1", "host-2"]) {
+      expect(
+        predicate({
+          queryKey: hostQueryKeys.method(hostId, "epic.mentionTickets", {
+            query: "",
+            limit: 100,
+          }),
+        }),
+      ).toBe(true);
+    }
   });
 });
 

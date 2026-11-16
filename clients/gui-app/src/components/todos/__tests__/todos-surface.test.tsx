@@ -29,6 +29,8 @@ import type { HostRpcRegistry } from "@/lib/host";
 import { hostQueryKeys } from "@/lib/query-keys";
 import { __resetTabNavigationControllerForTesting } from "@/lib/tab-navigation";
 import { resetTabsStoreForTest } from "@/stores/tabs/test-support/tabs-store-fixtures";
+import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
+import { ticketKey } from "@/lib/todos/group-todos";
 
 const fixture = vi.hoisted(() => {
   let activeHostId = "host-1";
@@ -110,7 +112,7 @@ function taskA(): ListTaskLight {
   return {
     ...base,
     epic: {
-      light: base.epic?.light ?? null,
+      light: base.epic?.light ? { ...base.epic.light, title: "Task A" } : null,
       permission: null,
       repos: [
         {
@@ -174,6 +176,7 @@ function section(name: string): HTMLElement {
 
 describe("TodosSurface", () => {
   beforeEach(() => {
+    useTicketStatusHoldsStore.setState({ holds: new Map() });
     resetTabsStoreForTest();
     __resetTabNavigationControllerForTesting();
     fixture.tasks.splice(0, fixture.tasks.length, taskA());
@@ -184,6 +187,7 @@ describe("TodosSurface", () => {
 
   afterEach(() => {
     cleanup();
+    useTicketStatusHoldsStore.setState({ holds: new Map() });
     focusManager.setFocused(undefined);
     vi.useRealTimers();
     __resetTabNavigationControllerForTesting();
@@ -317,20 +321,22 @@ describe("TodosSurface", () => {
     expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps a pending Done ticket stable across visibility and focus reads", async () => {
-    let writeSettled = false;
+  it("keeps Done over stale reads until the host's ticket index agrees", async () => {
     const readStarted = vi.fn();
+    let readCount = 0;
     fixture.client.requestWithSignal.mockImplementation(() => {
       readStarted();
-      const entries = writeSettled
-        ? TICKETS.map((entry) =>
-            entry.artifactId === "t-store" ? { ...entry, status: 2 } : entry,
-          )
-        : TICKETS;
+      readCount += 1;
+      const entries =
+        readCount < 3
+          ? TICKETS
+          : TICKETS.map((entry) =>
+              entry.artifactId === "t-store" ? { ...entry, status: 2 } : entry,
+            );
       return Promise.resolve({ entries });
     });
     const initialRead = nextCallOf(readStarted);
-    const rendered = renderSurface();
+    renderSurface();
     await act(async () => {
       await initialRead;
     });
@@ -349,60 +355,153 @@ describe("TodosSurface", () => {
     await pendingWrite;
     await waitForElementToBeRemoved(box);
 
-    const visibilityRead = nextCallOf(readStarted);
-    rendered.rerender(
-      <TabSurfaceActivityContext.Provider
-        value={{ visible: false, focused: false }}
-      >
-        <TodosSurface />
-      </TabSurfaceActivityContext.Provider>,
-    );
-    rendered.rerender(
-      <TabSurfaceActivityContext.Provider
-        value={{ visible: true, focused: true }}
-      >
-        <TodosSurface />
-      </TabSurfaceActivityContext.Provider>,
-    );
-    await act(async () => {
-      await visibilityRead;
-    });
-    expect(
-      screen.queryByRole("checkbox", { name: "Write the store" }),
-    ).toBeNull();
-
-    const focusRead = nextCallOf(readStarted);
-    act(() => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
-    });
-    await act(async () => {
-      await focusRead;
-    });
-    expect(
-      screen.queryByRole("checkbox", { name: "Write the store" }),
-    ).toBeNull();
-
     fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
     const pendingDone = screen.getByRole("checkbox", {
       name: "Write the store",
     });
     expect(pendingDone.getAttribute("aria-checked")).toBe("true");
     expect(pendingDone.matches(":disabled")).toBe(true);
-    expect(fixture.client.request).toHaveBeenCalledTimes(1);
 
-    writeSettled = true;
-    const settledRead = nextCallOf(readStarted);
+    const visibilityRead = nextCallOf(readStarted);
     await act(async () => {
       answer.resolve({ updated: true });
-      await settledRead;
+      await visibilityRead;
     });
+    const staleDone = await screen.findByRole("checkbox", {
+      name: "Write the store",
+    });
+    expect(staleDone.getAttribute("aria-checked")).toBe("true");
+    expect(staleDone.matches(":disabled")).toBe(false);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.get(ticketKey("task-a", "t-store"))?.status,
+    ).toBe(2);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Open" }));
+    expect(
+      screen.queryByRole("checkbox", { name: "Write the store" }),
+    ).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+
+    const focusRead = nextCallOf(readStarted);
+    const released = vi.fn();
+    const unsubscribe = useTicketStatusHoldsStore.subscribe((state) => {
+      if (!state.holds.has(ticketKey("task-a", "t-store"))) released();
+    });
+    const holdReleased = nextCallOf(released);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await act(async () => {
+      await focusRead;
+      await holdReleased;
+    });
+    unsubscribe();
     const settledDone = screen.getByRole("checkbox", {
       name: "Write the store",
     });
     expect(settledDone.getAttribute("aria-checked")).toBe("true");
     expect(settledDone.matches(":disabled")).toBe(false);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.has(ticketKey("task-a", "t-store")),
+    ).toBe(false);
     expect(fixture.client.request).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a later in-Task status replace a To-dos hold", async () => {
+    const readStarted = vi.fn();
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      readStarted();
+      return Promise.resolve({
+        entries: TICKETS,
+      });
+    });
+    const initialRead = nextCallOf(readStarted);
+    renderSurface();
+    await act(async () => {
+      await initialRead;
+    });
+
+    const box = await screen.findByRole("checkbox", {
+      name: "Write the store",
+    });
+    const answer = deferred<unknown>();
+    const writeStarted = vi.fn();
+    fixture.client.request.mockImplementation(() => {
+      writeStarted();
+      return answer.promise;
+    });
+    const writeCall = nextCallOf(writeStarted);
+    fireEvent.click(box);
+    await writeCall;
+    const staleRefetch = nextCallOf(readStarted);
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await staleRefetch;
+    });
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Write the store" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+
+    useTicketStatusHoldsStore
+      .getState()
+      .release(ticketKey("task-a", "t-store"));
+    const inTaskRead = nextCallOf(readStarted);
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await act(async () => {
+      await inTaskRead;
+    });
+
+    const todo = screen.getByRole("checkbox", { name: "Write the store" });
+    expect(todo.getAttribute("aria-checked")).toBe("false");
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.has(ticketKey("task-a", "t-store")),
+    ).toBe(false);
+  });
+
+  it("uses the Task list title when available and the ticket title otherwise", async () => {
+    const base = taskA();
+    fixture.tasks.splice(0, fixture.tasks.length, {
+      ...base,
+      epic: {
+        ...base.epic,
+        light: base.epic?.light
+          ? { ...base.epic.light, title: "Task list title" }
+          : null,
+      },
+    });
+    fixture.client.requestWithSignal.mockResolvedValue({
+      entries: TICKETS.map((entry) =>
+        entry.epicId === "task-a"
+          ? { ...entry, epicTitle: "Host read title" }
+          : entry,
+      ),
+    });
+
+    renderSurface();
+
+    expect(
+      await screen.findByRole("region", { name: "Task list title" }),
+    ).not.toBeNull();
+    expect(
+      await screen.findByRole("region", { name: "Task B" }),
+    ).not.toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Host read title" }),
+    ).toBeNull();
   });
 
   it("keeps a Done ticket out of Open when the host switches during its write", async () => {
@@ -483,7 +582,7 @@ describe("TodosSurface", () => {
       queryClient
         .getQueryData<EpicMentionTicketsResponse>(HOST_B_TICKETS_KEY)
         ?.entries.find((entry) => entry.artifactId === "t-store")?.status,
-    ).toBe(2);
+    ).toBe(0);
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Open" }));
     expect(
