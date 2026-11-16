@@ -29,7 +29,10 @@ import type { HostRpcRegistry } from "@/lib/host";
 import { hostQueryKeys } from "@/lib/query-keys";
 import { __resetTabNavigationControllerForTesting } from "@/lib/tab-navigation";
 import { resetTabsStoreForTest } from "@/stores/tabs/test-support/tabs-store-fixtures";
-import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
+import {
+  TICKET_STATUS_HOLD_MS,
+  useTicketStatusHoldsStore,
+} from "@/stores/todos/ticket-status-holds-store";
 import { ticketKey } from "@/lib/todos/group-todos";
 
 const fixture = vi.hoisted(() => {
@@ -321,7 +324,7 @@ describe("TodosSurface", () => {
     expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps Done over stale reads until the host's ticket index agrees", async () => {
+  it("lets the newest written status hold through lagging reads until its timer expires", async () => {
     const readStarted = vi.fn();
     let readCount = 0;
     fixture.client.requestWithSignal.mockImplementation(() => {
@@ -336,7 +339,13 @@ describe("TodosSurface", () => {
       return Promise.resolve({ entries });
     });
     const initialRead = nextCallOf(readStarted);
-    renderSurface();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rendered = renderSurfaceWithQueryClient(
+      { visible: true, focused: true },
+      queryClient,
+    );
     await act(async () => {
       await initialRead;
     });
@@ -354,6 +363,10 @@ describe("TodosSurface", () => {
     fireEvent.click(box);
     await pendingWrite;
     await waitForElementToBeRemoved(box);
+    vi.useFakeTimers();
+    expect(
+      screen.queryByRole("checkbox", { name: "Write the store" }),
+    ).toBeNull();
 
     fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
     const pendingDone = screen.getByRole("checkbox", {
@@ -361,115 +374,83 @@ describe("TodosSurface", () => {
     });
     expect(pendingDone.getAttribute("aria-checked")).toBe("true");
     expect(pendingDone.matches(":disabled")).toBe(true);
-
-    const visibilityRead = nextCallOf(readStarted);
+    const laggingRead = nextCallOf(readStarted);
+    const mutationSucceeded = vi.fn();
+    const unsubscribeMutation = queryClient
+      .getMutationCache()
+      .subscribe((event) => {
+        if (
+          event.type === "updated" &&
+          event.mutation.state.status === "success"
+        ) {
+          mutationSucceeded();
+        }
+      });
+    const successEvent = nextCallOf(mutationSucceeded);
     await act(async () => {
       answer.resolve({ updated: true });
-      await visibilityRead;
+      await Promise.all([laggingRead, successEvent]);
     });
-    const staleDone = await screen.findByRole("checkbox", {
-      name: "Write the store",
-    });
-    expect(staleDone.getAttribute("aria-checked")).toBe("true");
-    expect(staleDone.matches(":disabled")).toBe(false);
-    expect(
-      useTicketStatusHoldsStore
-        .getState()
-        .holds.get(ticketKey("task-a", "t-store"))?.status,
-    ).toBe(2);
-    expect(fixture.client.request).toHaveBeenCalledTimes(1);
-
+    unsubscribeMutation();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Open" }));
     expect(
       screen.queryByRole("checkbox", { name: "Write the store" }),
     ).toBeNull();
     fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
-
-    const focusRead = nextCallOf(readStarted);
-    const released = vi.fn();
-    const unsubscribe = useTicketStatusHoldsStore.subscribe((state) => {
-      if (!state.holds.has(ticketKey("task-a", "t-store"))) released();
-    });
-    const holdReleased = nextCallOf(released);
-    act(() => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
-    });
-    await act(async () => {
-      await focusRead;
-      await holdReleased;
-    });
-    unsubscribe();
-    const settledDone = screen.getByRole("checkbox", {
+    const staleDone = screen.getByRole("checkbox", {
       name: "Write the store",
     });
-    expect(settledDone.getAttribute("aria-checked")).toBe("true");
-    expect(settledDone.matches(":disabled")).toBe(false);
+    expect(staleDone.getAttribute("aria-checked")).toBe("true");
+    expect(staleDone.matches(":disabled")).toBe(false);
+    expect(readCount).toBe(2);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      useTicketStatusHoldsStore
+        .getState()
+        .hold(ticketKey("task-a", "t-store"), 0);
+    });
+    const todo = screen.getByRole("checkbox", { name: "Write the store" });
+    expect(todo.getAttribute("aria-checked")).toBe("false");
+
+    const inTaskRead = nextCallOf(readStarted);
+    const refetched = queryClient.invalidateQueries({
+      predicate: (query) =>
+        hostQueryKeys.matchesMethodOnAnyHost(
+          query.queryKey,
+          "epic.mentionTickets",
+        ),
+    });
+    await act(async () => {
+      await inTaskRead;
+      await refetched;
+    });
+    const laggedOtherDirection = screen.getByRole("checkbox", {
+      name: "Write the store",
+    });
+    expect(laggedOtherDirection.getAttribute("aria-checked")).toBe("false");
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.get(ticketKey("task-a", "t-store"))?.status,
+    ).toBe(0);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TICKET_STATUS_HOLD_MS);
+    });
     expect(
       useTicketStatusHoldsStore
         .getState()
         .holds.has(ticketKey("task-a", "t-store")),
     ).toBe(false);
-    expect(fixture.client.request).toHaveBeenCalledTimes(1);
-  });
-
-  it("lets a later in-Task status replace a To-dos hold", async () => {
-    const readStarted = vi.fn();
-    fixture.client.requestWithSignal.mockImplementation(() => {
-      readStarted();
-      return Promise.resolve({
-        entries: TICKETS,
-      });
-    });
-    const initialRead = nextCallOf(readStarted);
-    renderSurface();
-    await act(async () => {
-      await initialRead;
-    });
-
-    const box = await screen.findByRole("checkbox", {
-      name: "Write the store",
-    });
-    const answer = deferred<unknown>();
-    const writeStarted = vi.fn();
-    fixture.client.request.mockImplementation(() => {
-      writeStarted();
-      return answer.promise;
-    });
-    const writeCall = nextCallOf(writeStarted);
-    fireEvent.click(box);
-    await writeCall;
-    const staleRefetch = nextCallOf(readStarted);
-    await act(async () => {
-      answer.resolve({ updated: true });
-      await staleRefetch;
-    });
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
     expect(
       screen
         .getByRole("checkbox", { name: "Write the store" })
         .getAttribute("aria-checked"),
     ).toBe("true");
-
-    useTicketStatusHoldsStore
-      .getState()
-      .release(ticketKey("task-a", "t-store"));
-    const inTaskRead = nextCallOf(readStarted);
-    act(() => {
-      focusManager.setFocused(false);
-      focusManager.setFocused(true);
-    });
-    await act(async () => {
-      await inTaskRead;
-    });
-
-    const todo = screen.getByRole("checkbox", { name: "Write the store" });
-    expect(todo.getAttribute("aria-checked")).toBe("false");
-    expect(
-      useTicketStatusHoldsStore
-        .getState()
-        .holds.has(ticketKey("task-a", "t-store")),
-    ).toBe(false);
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+    rendered.unmount();
+    queryClient.clear();
   });
 
   it("uses the Task list title when available and the ticket title otherwise", async () => {

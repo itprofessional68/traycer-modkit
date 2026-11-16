@@ -332,32 +332,41 @@ describe("useEpicUpdateArtifactStatus ticket reads", () => {
     ).toBe(false);
   });
 
-  it("releases a To-dos status hold for the ticket after an in-Task write succeeds", async () => {
+  it("holds successful ticket writes, but not story or failed writes", async () => {
     commitCommand();
-    const key = ticketKey(status.epicId, status.artifactId);
-    useTicketStatusHoldsStore.getState().hold(key, 2);
     const { result } = renderHook(() =>
       useEpicUpdateArtifactStatus("artifact-1"),
     );
 
-    await result.current.mutateAsync({ ...status, status: 0 });
+    await result.current.mutateAsync(status);
 
-    expect(useTicketStatusHoldsStore.getState().holds.has(key)).toBe(false);
-    expect(queryClientFixture.invalidateQueries).toHaveBeenCalledTimes(1);
-    const { predicate } = queryClientFixture.invalidateQueries.mock
-      .calls[0][0] as {
-      predicate: (query: { queryKey: unknown }) => boolean;
-    };
-    for (const hostId of ["host-1", "host-2"]) {
-      expect(
-        predicate({
-          queryKey: hostQueryKeys.method(hostId, "epic.mentionTickets", {
-            query: "",
-            limit: 100,
-          }),
-        }),
-      ).toBe(true);
-    }
+    const ticketHold = ticketKey(status.epicId, status.artifactId);
+    expect(
+      useTicketStatusHoldsStore.getState().holds.get(ticketHold)?.status,
+    ).toBe(status.status);
+
+    const story = {
+      ...status,
+      artifactId: "story-1",
+      artifactType: "story",
+    } as const;
+    await result.current.mutateAsync(story);
+    expect(
+      useTicketStatusHoldsStore
+        .getState()
+        .holds.has(ticketKey(story.epicId, story.artifactId)),
+    ).toBe(false);
+
+    useTicketStatusHoldsStore.setState({ holds: new Map() });
+    rejectCommand("write denied");
+    await expect(result.current.mutateAsync(status)).rejects.toThrow(
+      "write denied",
+    );
+    expect(useTicketStatusHoldsStore.getState().holds.has(ticketHold)).toBe(
+      false,
+    );
+
+    expect(queryClientFixture.invalidateQueries).toHaveBeenCalledTimes(2);
   });
 });
 
