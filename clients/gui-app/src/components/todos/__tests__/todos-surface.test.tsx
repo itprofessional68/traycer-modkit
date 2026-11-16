@@ -1020,6 +1020,56 @@ describe("TodosSurface", () => {
       queryClient.clear();
     });
 
+    it("keeps its name when a newer lookup cannot answer for it", async () => {
+      let ticketEntries = TICKETS;
+      const lookupStarted = vi.fn();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: ticketEntries });
+          }
+          lookupStarted(params);
+          if (lookupStarted.mock.calls.length === 1) {
+            return Promise.resolve(
+              found(lookedUpTask("task-b", "Task B by id")),
+            );
+          }
+          // The cloud could not be reached for Task B this time.
+          return Promise.resolve({
+            tasks: {
+              ...found(lookedUpTask("task-c", "Task C by id")).tasks,
+              "task-b": { status: "unknown", reason: "transport" },
+            },
+          });
+        },
+      );
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      renderSurfaceWithQueryClient(
+        { visible: true, focused: true },
+        queryClient,
+      );
+      await screen.findByRole("region", { name: "Task B by id" });
+
+      ticketEntries = [
+        ...TICKETS,
+        ticket("task-c", "t-c", "Plan the launch", 0),
+      ];
+      await act(async () => {
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryHash === hashKey(HOST_A_TICKETS_KEY),
+        });
+      });
+
+      expect(
+        await screen.findByRole("region", { name: "Task C by id" }),
+      ).not.toBeNull();
+      expect(section("Task B by id")).not.toBeNull();
+      expect(screen.queryByRole("region", { name: "Task B" })).toBeNull();
+      queryClient.clear();
+    });
+
     it("starts over for a different signed-in person", async () => {
       const lookupStarted = vi.fn();
       const otherPersonsLookup = deferred<unknown>();
@@ -1061,7 +1111,10 @@ describe("TodosSurface", () => {
 
       expect(section("Task B")).not.toBeNull();
       expect(screen.queryByRole("region", { name: "Task B by id" })).toBeNull();
-      otherPersonsLookup.resolve({ tasks: {} });
+      await act(async () => {
+        otherPersonsLookup.resolve({ tasks: {} });
+        await otherPersonsLookup.promise;
+      });
     });
 
     it("is not looked up while the To-dos tab is hidden", async () => {

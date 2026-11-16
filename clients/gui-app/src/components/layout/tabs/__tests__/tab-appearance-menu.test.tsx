@@ -29,6 +29,7 @@ import {
   type HostRpcRegistry,
 } from "@traycer/protocol/host/index";
 import {
+  isConfirmedAbsentTaskContext,
   isFoundTaskContext,
   type GetTaskContextsResponse,
   type ListTaskLight,
@@ -107,15 +108,19 @@ vi.mock("@/hooks/epic/use-epic-get-task-contexts-query", () => ({
     // The query cache holds the wire response, as the real hook's does, so
     // readers that scan other surfaces' cached batches see the real shape.
     const tasksById = new Map<string, ListTaskLight>();
+    const absentTaskIds = new Set<string>();
     for (const [taskId, resolution] of Object.entries(
       query.data?.tasks ?? {},
     )) {
       if (isFoundTaskContext(resolution))
         tasksById.set(taskId, resolution.task);
+      else if (isConfirmedAbsentTaskContext(resolution))
+        absentTaskIds.add(taskId);
     }
     return {
       tasksById,
       localHomedTaskIds: new Set(query.data?.localHomedTaskIds ?? []),
+      absentTaskIds,
       isFetching: query.isFetching,
       isPending: query.isPending,
       error: query.error,

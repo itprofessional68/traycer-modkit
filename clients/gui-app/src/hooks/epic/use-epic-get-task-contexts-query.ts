@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import {
   GET_TASK_CONTEXTS_MAX_IDS,
+  isConfirmedAbsentTaskContext,
   isFoundTaskContext,
   type GetTaskContextsResponse,
   type ListTaskLight,
@@ -51,6 +52,12 @@ export interface EpicTaskContexts {
    * negotiation), which reads as cloud-or-unknown and never as local.
    */
   readonly localHomedTaskIds: ReadonlySet<string>;
+  /**
+   * The ids the host answered `confirmed-absent`: deleted, or not the
+   * person's to see. An `unknown` answer (a transport, server or sign-in
+   * failure) is in neither this set nor `tasksById`.
+   */
+  readonly absentTaskIds: ReadonlySet<string>;
   readonly isFetching: boolean;
   /**
    * Some batch has not answered yet. Unlike `isFetching`, a background
@@ -158,6 +165,7 @@ function combineTaskContextResults(
 ): CombinedTaskContexts {
   const tasksById = new Map<string, ListTaskLight>();
   const localHomedTaskIds = new Set<string>();
+  const absentTaskIds = new Set<string>();
   const batchRefetches = results.map((result) => async () => {
     await result.refetch();
   });
@@ -172,6 +180,8 @@ function combineTaskContextResults(
             ? resolution.task
             : { ...resolution.task, recentAt },
         );
+      } else if (isConfirmedAbsentTaskContext(resolution)) {
+        absentTaskIds.add(taskId);
       }
     }
     for (const taskId of result.data.localHomedTaskIds ?? []) {
@@ -185,6 +195,7 @@ function combineTaskContextResults(
     },
     batchRefetches,
     localHomedTaskIds,
+    absentTaskIds,
     isFetching: results.some((result) => result.isFetching),
     isPending: results.some((result) => result.isPending),
     // Older host: method unsupported → degrade silently to an empty map.

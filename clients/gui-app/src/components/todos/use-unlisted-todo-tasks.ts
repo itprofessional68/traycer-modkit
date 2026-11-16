@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { ListTaskLight } from "@traycer/protocol/host/epic/unary-schemas";
-import { useEpicGetTaskContexts } from "@/hooks/epic/use-epic-get-task-contexts-query";
+import {
+  useEpicGetTaskContexts,
+  type EpicTaskContexts,
+} from "@/hooks/epic/use-epic-get-task-contexts-query";
 
 export interface UnlistedTodoTasks {
   /** The Tasks found for this person, by id. */
@@ -20,9 +23,9 @@ interface Remembered extends UnlistedTodoTasks {
  * up by id as History does. The lookup's key is the id set, so a new Task's
  * ticket or a reshuffled first page starts a new lookup; the Tasks already
  * found are kept meanwhile rather than falling back to the ticket read's
- * name. A complete answer that no longer finds a Task (deleted, or no longer
- * the person's to see) drops it. Kept per person: a different `userId` starts
- * empty.
+ * name. An answer that confirms a Task absent (deleted, or no longer the
+ * person's to see) drops it; one that cannot answer for it keeps it. Kept per
+ * person: a different `userId` starts empty.
  *
  * `enabled` is the cloud verdict and the caller's own gates; the lookup also
  * needs a known user and at least one id.
@@ -39,8 +42,6 @@ export function useUnlistedTodoTasks(
     tasksById: new Map(),
     localHomedTaskIds: new Set(),
   }));
-  const answered =
-    epicIds.length > 0 && !lookup.isPending && lookup.error === null;
   // Merged during render, as React's "storing information from previous
   // renders" pattern does, so a fresh answer shows in the same render.
   if (remembered.userId !== userId) {
@@ -52,30 +53,28 @@ export function useUnlistedTodoTasks(
     });
   } else if (
     remembered.mergedFrom !== lookup.tasksById &&
-    (lookup.tasksById.size > 0 || answered)
+    (lookup.tasksById.size > 0 || lookup.absentTaskIds.size > 0)
   ) {
-    setRemembered(
-      mergeAnswer(remembered, lookup, answered ? epicIds : NO_EPIC_IDS),
-    );
+    setRemembered(mergeAnswer(remembered, lookup));
   }
   return remembered.userId === userId ? remembered : lookup;
 }
 
-const NO_EPIC_IDS: readonly string[] = [];
-
 /**
  * `remembered` with `answer` laid over it: each Task it found, with its
- * local-homed mark, and none of `askedFor` it did not find.
+ * local-homed mark, and none it confirmed absent. A Task it could not answer
+ * for (`unknown`) keeps what was found before.
  */
 function mergeAnswer(
   remembered: Remembered,
-  answer: UnlistedTodoTasks,
-  askedFor: readonly string[],
+  answer: Pick<
+    EpicTaskContexts,
+    "tasksById" | "localHomedTaskIds" | "absentTaskIds"
+  >,
 ): Remembered {
   const tasksById = new Map(remembered.tasksById);
   const localHomedTaskIds = new Set(remembered.localHomedTaskIds);
-  for (const epicId of askedFor) {
-    if (answer.tasksById.has(epicId)) continue;
+  for (const epicId of answer.absentTaskIds) {
     tasksById.delete(epicId);
     localHomedTaskIds.delete(epicId);
   }
