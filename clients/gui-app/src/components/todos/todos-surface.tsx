@@ -22,6 +22,7 @@ import {
 import { AgentSpinningDots } from "@/components/ui/agent-spinning-dots";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEpicMentionTicketsQuery } from "@/hooks/epic/use-epic-mention-tickets-query";
+import { useEpicGetTaskContexts } from "@/hooks/epic/use-epic-get-task-contexts-query";
 import { usePendingTicketStatuses } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query";
 import {
@@ -30,6 +31,10 @@ import {
   withWrittenStatuses,
   type TodoFilter,
 } from "@/lib/todos/group-todos";
+import {
+  authorizesCloudCapability,
+  useAuthStore,
+} from "@/stores/auth/auth-store";
 import {
   heldTicketStatuses,
   useTicketStatusHoldsStore,
@@ -41,7 +46,8 @@ const ALL_REPOS = "all-repos";
 
 /**
  * The To-dos tab: the tickets the app-wide host has indexed, grouped by
- * Task, to check off. Task names and repos come from the Task list.
+ * Task, to check off. Task names and repos come from the Task list, and for
+ * a Task past its first page, from a lookup by id.
  */
 export function TodosSurface(): ReactNode {
   const { visible } = useTabSurfaceActivity();
@@ -101,7 +107,7 @@ export function TodosSurface(): ReactNode {
     };
   }, [holds, visible, requestedAt, isFetching, isError, refetch]);
   // `nowMs` only feeds the items' time labels, which this surface never shows.
-  const taskItems = useMemo(
+  const listedItems = useMemo(
     () =>
       buildHistoryItemsFromTasks(
         tasks,
@@ -110,6 +116,40 @@ export function TodosSurface(): ReactNode {
         EMPTY_LOCAL_HOMED_TASK_IDS,
       ),
     [tasks, currentUserId],
+  );
+  // The Task list is its first page, and tickets come from any Task the host
+  // has indexed: the rest are looked up by id, as History does.
+  const unlistedEpicIds = useMemo(() => {
+    const listed = new Set(listedItems.map((item) => item.epicId));
+    return [...new Set(readEntries.map((entry) => entry.epicId))]
+      .filter((epicId) => !listed.has(epicId))
+      .toSorted((left, right) => left.localeCompare(right));
+  }, [listedItems, readEntries]);
+  const cloudAuthorized = useAuthStore((state) =>
+    authorizesCloudCapability(state.status),
+  );
+  const unlisted = useEpicGetTaskContexts(unlistedEpicIds, currentUserId, {
+    enabled: cloudAuthorized,
+  });
+  const taskItems = useMemo(
+    () =>
+      unlisted.tasksById.size === 0
+        ? listedItems
+        : [
+            ...listedItems,
+            ...buildHistoryItemsFromTasks(
+              [...unlisted.tasksById.values()],
+              0,
+              currentUserId,
+              unlisted.localHomedTaskIds,
+            ),
+          ],
+    [
+      listedItems,
+      unlisted.tasksById,
+      unlisted.localHomedTaskIds,
+      currentUserId,
+    ],
   );
   const reposByEpicId = useMemo(
     () => todoReposByEpicId(taskItems),

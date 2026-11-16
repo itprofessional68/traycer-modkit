@@ -16,9 +16,9 @@ export function todoTaskTitlesByEpicId(
 }
 
 /**
- * Each Task's linked repos (`owner/repo`), by Task id. The Task list is one
- * page and the tickets come from any Task the host has indexed, so a ticket's
- * Task can be missing: it then shows no repo and matches no repo filter.
+ * Each Task's linked repos (`owner/repo`), by Task id. A Task the pane could
+ * not find (not on the Task list's first page, and its lookup by id not
+ * answered or not allowed) shows no repo and matches no repo filter.
  *
  * No edit right is read here: every role a person can hold on a Task may
  * change it, and the host refuses a write that is not theirs to make.

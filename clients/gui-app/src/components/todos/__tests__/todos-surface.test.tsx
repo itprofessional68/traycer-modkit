@@ -37,6 +37,7 @@ import {
   useTicketStatusHoldsStore,
 } from "@/stores/todos/ticket-status-holds-store";
 import { ticketKey } from "@/lib/todos/group-todos";
+import { useAuthStore } from "@/stores/auth/auth-store";
 
 const fixture = vi.hoisted(() => {
   let activeHostId = "host-1";
@@ -56,6 +57,7 @@ const fixture = vi.hoisted(() => {
       activeHostId = hostId;
     },
     tasks: new Array<unknown>(),
+    currentUserId: null as string | null,
     navigations: new Array<NavigateOptions>(),
   };
 });
@@ -67,7 +69,7 @@ vi.mock("@/lib/host", async (importOriginal) => ({
 vi.mock("@/hooks/epics/use-cloud-epic-tasks-query", () => ({
   useCloudEpicTasksQuery: () => ({
     tasks: fixture.tasks,
-    currentUserId: null,
+    currentUserId: fixture.currentUserId,
   }),
 }));
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -210,6 +212,7 @@ describe("TodosSurface", () => {
     resetTabsStoreForTest();
     __resetTabNavigationControllerForTesting();
     fixture.tasks.splice(0, fixture.tasks.length, taskA());
+    fixture.currentUserId = null;
     fixture.setActiveHostId("host-1");
     fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
     focusManager.setFocused(undefined);
@@ -778,6 +781,55 @@ describe("TodosSurface", () => {
     expect(
       screen.queryByRole("region", { name: "Host read title" }),
     ).toBeNull();
+  });
+
+  it("names a Task past the Task list's first page by looking it up by id", async () => {
+    useAuthStore
+      .getState()
+      .setSignedIn(
+        { userId: "user-a", userName: "A", email: "a@example.com" },
+        { userId: "user-a", username: "A" },
+        [],
+      );
+    fixture.currentUserId = "user-a";
+    const base = taskLight("task-b", null);
+    const taskB: ListTaskLight = {
+      ...base,
+      epic: {
+        light: base.epic?.light
+          ? { ...base.epic.light, title: "Task B by id" }
+          : null,
+        permission: null,
+        repos: [],
+        workspaces: [],
+        roomInfo: null,
+      },
+    };
+    const lookups = new Array<unknown>();
+    fixture.client.requestWithSignal.mockImplementation(
+      (method: string, params: unknown) => {
+        if (method !== "epic.getTaskContexts") {
+          return Promise.resolve({ entries: TICKETS });
+        }
+        lookups.push(params);
+        return Promise.resolve({
+          tasks: { "task-b": { status: "found", task: taskB } },
+        });
+      },
+    );
+
+    try {
+      renderSurface();
+
+      expect(
+        await screen.findByRole("region", { name: "Task B by id" }),
+      ).not.toBeNull();
+      expect(screen.queryByRole("region", { name: "Task B" })).toBeNull();
+      expect(section("Task A")).not.toBeNull();
+      expect(lookups).toEqual([{ taskIds: ["task-b"] }]);
+    } finally {
+      useAuthStore.getState().setSignedOut();
+    }
   });
 
   it("keeps a Done ticket out of Open when the host switches during its write", async () => {
