@@ -9,9 +9,9 @@ import {
 const FIRST = ticketKey("task-a", "ticket-1");
 const SECOND = ticketKey("task-a", "ticket-2");
 
-function heldAt(readAt: number): ReadonlyMap<string, number> {
+function heldAt(requestedAt: number): ReadonlyMap<string, number> {
   return new Map(
-    heldTicketStatuses(useTicketStatusHoldsStore.getState().holds, readAt),
+    heldTicketStatuses(useTicketStatusHoldsStore.getState().holds, requestedAt),
   );
 }
 
@@ -26,7 +26,7 @@ describe("ticket status holds", () => {
     vi.useRealTimers();
   });
 
-  it("covers reads that land within 30 seconds of the write, and no later one", () => {
+  it("covers reads sent within 30 seconds of the write, and no later one", () => {
     const placedAt = Date.now();
     useTicketStatusHoldsStore.getState().hold(FIRST, 2);
 
@@ -37,13 +37,13 @@ describe("ticket status holds", () => {
     expect(heldAt(placedAt + TICKET_STATUS_HOLD_MS).size).toBe(0);
   });
 
-  it("keeps covering a read cached inside the window after the window ends", () => {
-    const cachedReadAt = Date.now() + 5_000;
+  it("keeps covering a read sent inside the window after the window ends", () => {
+    const sentAt = Date.now() + 5_000;
     useTicketStatusHoldsStore.getState().hold(FIRST, 2);
 
     vi.advanceTimersByTime(TICKET_STATUS_HOLD_MS * 2);
 
-    expect(heldAt(cachedReadAt)).toEqual(new Map([[FIRST, 2]]));
+    expect(heldAt(sentAt)).toEqual(new Map([[FIRST, 2]]));
   });
 
   it("replaces a hold's status and window with the newer write's", () => {

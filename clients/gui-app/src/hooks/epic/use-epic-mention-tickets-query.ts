@@ -1,5 +1,10 @@
-import type { RequestOfMethod } from "@traycer-clients/shared/host-transport/host-messenger";
-import { useHostQuery } from "@/hooks/host/use-host-query";
+import type { UseQueryResult } from "@tanstack/react-query";
+import type {
+  HostRpcError,
+  RequestOfMethod,
+} from "@traycer-clients/shared/host-transport/host-messenger";
+import type { EpicMentionTicketsResponse } from "@traycer/protocol/host/epic/unary-schemas";
+import { useHostQueryWithResponseMap } from "@/hooks/host/use-host-query";
 import { useHostClient, type HostRpcRegistry } from "@/lib/host";
 
 /**
@@ -14,6 +19,15 @@ const ALL_TICKETS_PARAMS: RequestOfMethod<
   "epic.mentionTickets"
 > = { query: "", limit: 100 };
 
+/** The To-dos pane's tickets, with when the read that fetched them was sent. */
+export interface TicketsRead extends EpicMentionTicketsResponse {
+  /**
+   * `Date.now()` just before the request went out. A written status's hold
+   * covers every read sent before its window ended, however late it lands.
+   */
+  readonly requestedAt: number;
+}
+
 /**
  * The To-dos pane's tickets, read through the app-wide host: the pane spans
  * Tasks, so no one Task's session host answers for it. Mount only from the
@@ -25,13 +39,25 @@ const ALL_TICKETS_PARAMS: RequestOfMethod<
  * true), when the window regains focus and when a written status's hold
  * ends, and not while the tab is hidden.
  */
-export function useEpicMentionTicketsQuery(visible: boolean) {
+export function useEpicMentionTicketsQuery(
+  visible: boolean,
+): UseQueryResult<TicketsRead, HostRpcError> {
   const client = useHostClient();
-  return useHostQuery<HostRpcRegistry, "epic.mentionTickets">({
+  return useHostQueryWithResponseMap<
+    HostRpcRegistry,
+    "epic.mentionTickets",
+    TicketsRead,
+    number
+  >({
     client,
     method: "epic.mentionTickets",
     params: ALL_TICKETS_PARAMS,
     cacheKeyIdentity: undefined,
     options: { enabled: visible, staleTime: 0, refetchOnWindowFocus: true },
+    captureRequestContext: () => Date.now(),
+    mapResponse: ({ response, requestContext }) => ({
+      ...response,
+      requestedAt: requestContext ?? Date.now(),
+    }),
   });
 }

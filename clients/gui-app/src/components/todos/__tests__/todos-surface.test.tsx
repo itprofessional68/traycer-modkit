@@ -11,6 +11,7 @@ import {
   focusManager,
   hashKey,
   QueryClient,
+  type QueryKey,
   QueryClientProvider,
 } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -25,6 +26,7 @@ import { nextCallOf } from "@/__tests__/next-call";
 import { WithTestQueryClient } from "@/__tests__/with-test-query-client";
 import { TabSurfaceActivityContext } from "@/components/layout/tab-surface-activity-context";
 import { TodosSurface } from "@/components/todos/todos-surface";
+import type { TicketsRead } from "@/hooks/epic/use-epic-mention-tickets-query";
 import { taskLight } from "@/lib/view-replica/__tests__/replica-fixtures";
 import type { HostRpcRegistry } from "@/lib/host";
 import { hostQueryKeys } from "@/lib/query-keys";
@@ -178,15 +180,18 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-/** Resolves when host-1's next ticket read is stored in `queryClient`. */
-function nextTicketReadLanded(queryClient: QueryClient): Promise<void> {
-  const hostATicketsHash = hashKey(HOST_A_TICKETS_KEY);
+/** Resolves when the next ticket read under `key` is stored in `queryClient`. */
+function nextTicketReadLanded(
+  queryClient: QueryClient,
+  key: QueryKey,
+): Promise<void> {
+  const ticketsHash = hashKey(key);
   return new Promise((resolve) => {
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (
         event.type === "updated" &&
         event.action.type === "success" &&
-        event.query.queryHash === hostATicketsHash
+        event.query.queryHash === ticketsHash
       ) {
         unsubscribe();
         resolve();
@@ -464,7 +469,7 @@ describe("TodosSurface", () => {
       await readAfterHold;
     });
     expect(readCount).toBe(4);
-    const landed = nextTicketReadLanded(queryClient);
+    const landed = nextTicketReadLanded(queryClient, HOST_A_TICKETS_KEY);
     await act(async () => {
       readAfterHoldAnswer.resolve({ entries: doneEntries });
       await landed;
@@ -559,7 +564,7 @@ describe("TodosSurface", () => {
     expect(readCount).toBe(3);
     expect(rowState()).toBe("true");
 
-    const landed = nextTicketReadLanded(queryClient);
+    const landed = nextTicketReadLanded(queryClient, HOST_A_TICKETS_KEY);
     await act(async () => {
       readAfterHold.resolve({ entries: TICKETS });
       await landed;
@@ -568,6 +573,177 @@ describe("TodosSurface", () => {
     });
     expect(rowState()).toBe("false");
     expect(fixture.client.request).toHaveBeenCalledTimes(1);
+    rendered.unmount();
+    queryClient.clear();
+  });
+
+  it("reads the tickets again at each hold's own window end", async () => {
+    const reads: Array<{
+      readonly resolve: (value: EpicMentionTicketsResponse) => void;
+    }> = [];
+    const readStarted = vi.fn();
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      readStarted();
+      if (reads.length === 0) {
+        reads.push({ resolve: () => undefined });
+        return Promise.resolve({ entries: TICKETS });
+      }
+      const answer = deferred<EpicMentionTicketsResponse>();
+      reads.push(answer);
+      return answer.promise;
+    });
+    const initialRead = nextCallOf(readStarted);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rendered = renderSurfaceWithQueryClient(
+      { visible: true, focused: true },
+      queryClient,
+    );
+    await act(async () => {
+      await initialRead;
+    });
+    await screen.findByRole("checkbox", { name: "Write the store" });
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+    const rowState = (name: string) =>
+      screen.getByRole("checkbox", { name }).getAttribute("aria-checked");
+
+    // Two writes 10 s apart, as the in-Task status hook holds them; the
+    // host's index never catches up.
+    vi.useFakeTimers();
+    act(() => {
+      useTicketStatusHoldsStore
+        .getState()
+        .hold(ticketKey("task-a", "t-store"), 2);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    act(() => {
+      useTicketStatusHoldsStore
+        .getState()
+        .hold(ticketKey("task-a", "t-route"), 2);
+    });
+    expect(rowState("Write the store")).toBe("true");
+    expect(rowState("Wire the route")).toBe("true");
+
+    const firstEndRead = nextCallOf(readStarted);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TICKET_STATUS_HOLD_MS - 10_000);
+      await firstEndRead;
+    });
+    const firstLanded = nextTicketReadLanded(queryClient, HOST_A_TICKETS_KEY);
+    await act(async () => {
+      reads[1]?.resolve({ entries: TICKETS });
+      await firstLanded;
+      // The query's notifications wait on a zero-delay timer.
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rowState("Write the store")).toBe("false");
+    expect(rowState("Wire the route")).toBe("true");
+
+    const secondEndRead = nextCallOf(readStarted);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+      await secondEndRead;
+    });
+    const secondLanded = nextTicketReadLanded(queryClient, HOST_A_TICKETS_KEY);
+    await act(async () => {
+      reads[2]?.resolve({ entries: TICKETS });
+      await secondLanded;
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rowState("Wire the route")).not.toBe("true");
+    expect(reads).toHaveLength(3);
+    rendered.unmount();
+    queryClient.clear();
+  });
+
+  it("keeps a hold over a read sent before its window ended, then reads again", async () => {
+    const hostBReads: Array<{
+      readonly resolve: (value: EpicMentionTicketsResponse) => void;
+    }> = [];
+    const hostAReadStarted = vi.fn();
+    const hostBReadStarted = vi.fn();
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      if (fixture.client.getActiveHostId() === "host-2") {
+        hostBReadStarted();
+        const answer = deferred<EpicMentionTicketsResponse>();
+        hostBReads.push(answer);
+        return answer.promise;
+      }
+      hostAReadStarted();
+      return Promise.resolve({ entries: TICKETS });
+    });
+    const hostARead = nextCallOf(hostAReadStarted);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rendered = renderSurfaceWithQueryClient(
+      { visible: true, focused: true },
+      queryClient,
+    );
+    await act(async () => {
+      await hostARead;
+    });
+    await screen.findByRole("checkbox", { name: "Write the store" });
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+
+    vi.useFakeTimers();
+    act(() => {
+      useTicketStatusHoldsStore
+        .getState()
+        .hold(ticketKey("task-a", "t-store"), 2);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TICKET_STATUS_HOLD_MS - 1_000);
+    });
+
+    // Host B has nothing cached, so its first read is still in flight when
+    // the window ends; the pane's read at the window end joins it.
+    fixture.setActiveHostId("host-2");
+    const lateRead = nextCallOf(hostBReadStarted);
+    rendered.rerender(
+      <TabSurfaceActivityContext.Provider
+        value={{ visible: true, focused: true }}
+      >
+        <TodosSurface />
+      </TabSurfaceActivityContext.Provider>,
+    );
+    await act(async () => {
+      await lateRead;
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(hostBReads).toHaveLength(1);
+
+    const lateLanded = nextTicketReadLanded(queryClient, HOST_B_TICKETS_KEY);
+    const readAgain = nextCallOf(hostBReadStarted);
+    await act(async () => {
+      hostBReads[0]?.resolve({ entries: TICKETS });
+      await lateLanded;
+      await vi.advanceTimersByTimeAsync(0);
+      await readAgain;
+    });
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Write the store" })
+        .getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(hostBReads).toHaveLength(2);
+
+    const freshLanded = nextTicketReadLanded(queryClient, HOST_B_TICKETS_KEY);
+    await act(async () => {
+      hostBReads[1]?.resolve({ entries: TICKETS });
+      await freshLanded;
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(
+      screen
+        .getByRole("checkbox", { name: "Write the store" })
+        .getAttribute("aria-checked"),
+    ).toBe("false");
     rendered.unmount();
     queryClient.clear();
   });
@@ -608,8 +784,9 @@ describe("TodosSurface", () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
-    queryClient.setQueryData<EpicMentionTicketsResponse>(HOST_B_TICKETS_KEY, {
+    queryClient.setQueryData<TicketsRead>(HOST_B_TICKETS_KEY, {
       entries: TICKETS,
+      requestedAt: 0,
     });
     const oldHostBRead = deferred<EpicMentionTicketsResponse>();
     const newHostBRead = deferred<EpicMentionTicketsResponse>();
@@ -680,7 +857,7 @@ describe("TodosSurface", () => {
     expect(fixture.client.request).toHaveBeenCalledTimes(1);
     expect(
       queryClient
-        .getQueryData<EpicMentionTicketsResponse>(HOST_B_TICKETS_KEY)
+        .getQueryData<TicketsRead>(HOST_B_TICKETS_KEY)
         ?.entries.find((entry) => entry.artifactId === "t-store")?.status,
     ).toBe(0);
 

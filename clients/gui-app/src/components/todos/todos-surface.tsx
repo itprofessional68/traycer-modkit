@@ -55,36 +55,50 @@ export function TodosSurface(): ReactNode {
   const pending = usePendingTicketStatuses();
   const holds = useTicketStatusHoldsStore((state) => state.holds);
   const readEntries = tickets.data?.entries ?? NO_TICKETS;
-  const readAt = tickets.dataUpdatedAt;
+  const requestedAt = tickets.data?.requestedAt;
   // A write in flight wins over a hold on the same ticket: it is newer.
   const entries = useMemo(
     () =>
       withWrittenStatuses(
         readEntries,
-        new Map([...heldTicketStatuses(holds, readAt), ...pending]),
+        new Map([
+          ...(requestedAt === undefined
+            ? []
+            : heldTicketStatuses(holds, requestedAt)),
+          ...pending,
+        ]),
       ),
-    [readEntries, readAt, holds, pending],
+    [readEntries, requestedAt, holds, pending],
   );
-  // A hold covers the reads cached during its window, so when the window
-  // ends the tickets are read again, and the held status shows until that
-  // read lands. A hidden tab reads again when it is next shown.
-  const { refetch } = tickets;
+  // A hold covers every read sent during its window, so when a window ends
+  // the tickets are read again, and the held status shows until a read sent
+  // after it lands. A hidden tab reads again when it is next shown.
+  const { refetch, isFetching, isError } = tickets;
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || requestedAt === undefined) return;
     const now = Date.now();
-    const nextLift = Math.min(
-      ...[...holds.values()]
-        .map((hold) => hold.liftsAt)
-        .filter((liftsAt) => liftsAt > now),
+    const windowEnds = new Set([...holds.values()].map((hold) => hold.liftsAt));
+    // A window that has ended still covers this read: one already in flight
+    // when it ended is joined rather than restarted, and lands here. A failed
+    // read waits for the next show or focus instead of retrying here.
+    const covered = [...windowEnds].some(
+      (end) => end <= now && requestedAt < end,
     );
-    if (!Number.isFinite(nextLift)) return;
-    const timer = setTimeout(() => {
+    if (covered && !isFetching && !isError) {
       void refetch();
-    }, nextLift - now);
+      return;
+    }
+    const timers = [...windowEnds]
+      .filter((end) => end > now)
+      .map((end) =>
+        setTimeout(() => {
+          void refetch();
+        }, end - now),
+      );
     return () => {
-      clearTimeout(timer);
+      timers.forEach(clearTimeout);
     };
-  }, [holds, visible, refetch]);
+  }, [holds, visible, requestedAt, isFetching, isError, refetch]);
   // `nowMs` only feeds the items' time labels, which this surface never shows.
   const taskItems = useMemo(
     () =>
