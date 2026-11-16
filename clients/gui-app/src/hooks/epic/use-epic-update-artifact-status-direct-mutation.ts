@@ -49,7 +49,7 @@ export interface UpdateTicketStatusVariables {
  * Once the host confirms it, a 30 s hold (`useTicketStatusHoldsStore`) takes
  * over before the pending status lifts, because the host's ticket index
  * catches up a few seconds after the write and the next reads still say the
- * old status.
+ * old status; the pane reads again when the hold ends.
  * Every host's ticket reads are then read again: the app-wide host can change
  * while the write is in flight. Every callback is the mutation's own, never
  * one handed to a single call: a row checked off under the Open filter leaves

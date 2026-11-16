@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { EpicMentionTicketSuggestion } from "@traycer/protocol/host/epic/unary-schemas";
 import {
   buildHistoryItemsFromTasks,
@@ -30,7 +30,10 @@ import {
   withWrittenStatuses,
   type TodoFilter,
 } from "@/lib/todos/group-todos";
-import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
+import {
+  heldTicketStatuses,
+  useTicketStatusHoldsStore,
+} from "@/stores/todos/ticket-status-holds-store";
 
 const NO_TICKETS: ReadonlyArray<EpicMentionTicketSuggestion> = [];
 /** The repo filter's "no filter" item; Radix gives `""` its own meaning. */
@@ -41,7 +44,8 @@ const ALL_REPOS = "all-repos";
  * Task, to check off. Task names and repos come from the Task list.
  */
 export function TodosSurface(): ReactNode {
-  const tickets = useEpicMentionTicketsQuery(useTabSurfaceActivity().visible);
+  const { visible } = useTabSurfaceActivity();
+  const tickets = useEpicMentionTicketsQuery(visible);
   const { tasks, currentUserId } = useCloudEpicTasksQuery(undefined, {
     enabled: true,
   });
@@ -51,18 +55,36 @@ export function TodosSurface(): ReactNode {
   const pending = usePendingTicketStatuses();
   const holds = useTicketStatusHoldsStore((state) => state.holds);
   const readEntries = tickets.data?.entries ?? NO_TICKETS;
+  const readAt = tickets.dataUpdatedAt;
   // A write in flight wins over a hold on the same ticket: it is newer.
   const entries = useMemo(
     () =>
       withWrittenStatuses(
         readEntries,
-        new Map([
-          ...[...holds].map(([key, hold]) => [key, hold.status] as const),
-          ...pending,
-        ]),
+        new Map([...heldTicketStatuses(holds, readAt), ...pending]),
       ),
-    [readEntries, holds, pending],
+    [readEntries, readAt, holds, pending],
   );
+  // A hold covers the reads cached during its window, so when the window
+  // ends the tickets are read again, and the held status shows until that
+  // read lands. A hidden tab reads again when it is next shown.
+  const { refetch } = tickets;
+  useEffect(() => {
+    if (!visible) return;
+    const now = Date.now();
+    const nextLift = Math.min(
+      ...[...holds.values()]
+        .map((hold) => hold.liftsAt)
+        .filter((liftsAt) => liftsAt > now),
+    );
+    if (!Number.isFinite(nextLift)) return;
+    const timer = setTimeout(() => {
+      void refetch();
+    }, nextLift - now);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [holds, visible, refetch]);
   // `nowMs` only feeds the items' time labels, which this surface never shows.
   const taskItems = useMemo(
     () =>

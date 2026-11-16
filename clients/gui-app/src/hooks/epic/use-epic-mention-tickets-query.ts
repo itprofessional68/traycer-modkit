@@ -22,7 +22,8 @@ const ALL_TICKETS_PARAMS: RequestOfMethod<
  * A status write here or in a Task open in this window reads it again; a
  * change by an agent or on another machine tells it nothing. So it is never
  * fresh: it is read again each time the tab is shown (`visible` turning
- * true) and when the window regains focus, and not while the tab is hidden.
+ * true), when the window regains focus and when a written status's hold
+ * ends, and not while the tab is hidden.
  */
 export function useEpicMentionTicketsQuery(visible: boolean) {
   const client = useHostClient();

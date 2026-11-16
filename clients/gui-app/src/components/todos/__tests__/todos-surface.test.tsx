@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import {
   focusManager,
+  hashKey,
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
@@ -104,6 +105,10 @@ const TICKETS = [
   ticket("task-b", "t-docs", "Write the docs", null),
 ];
 
+const HOST_A_TICKETS_KEY = hostQueryKeys.method<
+  HostRpcRegistry,
+  "epic.mentionTickets"
+>("host-1", "epic.mentionTickets", { query: "", limit: 100 });
 const HOST_B_TICKETS_KEY = hostQueryKeys.method<
   HostRpcRegistry,
   "epic.mentionTickets"
@@ -171,6 +176,23 @@ function deferred<T>() {
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+/** Resolves when host-1's next ticket read is stored in `queryClient`. */
+function nextTicketReadLanded(queryClient: QueryClient): Promise<void> {
+  const hostATicketsHash = hashKey(HOST_A_TICKETS_KEY);
+  return new Promise((resolve) => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event.type === "updated" &&
+        event.action.type === "success" &&
+        event.query.queryHash === hostATicketsHash
+      ) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
 }
 
 function section(name: string): HTMLElement {
@@ -327,16 +349,17 @@ describe("TodosSurface", () => {
   it("lets the newest written status hold through lagging reads until its timer expires", async () => {
     const readStarted = vi.fn();
     let readCount = 0;
+    const doneEntries = TICKETS.map((entry) =>
+      entry.artifactId === "t-store" ? { ...entry, status: 2 } : entry,
+    );
+    const readAfterHoldAnswer = deferred<EpicMentionTicketsResponse>();
     fixture.client.requestWithSignal.mockImplementation(() => {
       readStarted();
       readCount += 1;
-      const entries =
-        readCount < 3
-          ? TICKETS
-          : TICKETS.map((entry) =>
-              entry.artifactId === "t-store" ? { ...entry, status: 2 } : entry,
-            );
-      return Promise.resolve({ entries });
+      if (readCount === 4) return readAfterHoldAnswer.promise;
+      return Promise.resolve({
+        entries: readCount < 3 ? TICKETS : doneEntries,
+      });
     });
     const initialRead = nextCallOf(readStarted);
     const queryClient = new QueryClient({
@@ -435,19 +458,115 @@ describe("TodosSurface", () => {
         .holds.get(ticketKey("task-a", "t-store"))?.status,
     ).toBe(0);
 
+    const readAfterHold = nextCallOf(readStarted);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(TICKET_STATUS_HOLD_MS);
+      await readAfterHold;
     });
-    expect(
-      useTicketStatusHoldsStore
-        .getState()
-        .holds.has(ticketKey("task-a", "t-store")),
-    ).toBe(false);
+    expect(readCount).toBe(4);
+    const landed = nextTicketReadLanded(queryClient);
+    await act(async () => {
+      readAfterHoldAnswer.resolve({ entries: doneEntries });
+      await landed;
+      // The query's notifications wait on a zero-delay timer.
+      await vi.advanceTimersByTimeAsync(0);
+    });
     expect(
       screen
         .getByRole("checkbox", { name: "Write the store" })
         .getAttribute("aria-checked"),
     ).toBe("true");
+    expect(fixture.client.request).toHaveBeenCalledTimes(1);
+    rendered.unmount();
+    queryClient.clear();
+  });
+
+  it("reads the tickets again when a hold ends, and holds until that read lands", async () => {
+    const readStarted = vi.fn();
+    let readCount = 0;
+    const readAfterHold = deferred<EpicMentionTicketsResponse>();
+    // The host's index never catches up: every read still says To do.
+    fixture.client.requestWithSignal.mockImplementation(() => {
+      readStarted();
+      readCount += 1;
+      return readCount <= 2
+        ? Promise.resolve({ entries: TICKETS })
+        : readAfterHold.promise;
+    });
+    const initialRead = nextCallOf(readStarted);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rendered = renderSurfaceWithQueryClient(
+      { visible: true, focused: true },
+      queryClient,
+    );
+    await act(async () => {
+      await initialRead;
+    });
+
+    const box = await screen.findByRole("checkbox", {
+      name: "Write the store",
+    });
+    const answer = deferred<unknown>();
+    const writeStarted = vi.fn();
+    fixture.client.request.mockImplementation(() => {
+      writeStarted();
+      return answer.promise;
+    });
+    const pendingWrite = nextCallOf(writeStarted);
+    fireEvent.click(box);
+    await pendingWrite;
+    await waitForElementToBeRemoved(box);
+    vi.useFakeTimers();
+    const settleRead = nextCallOf(readStarted);
+    const mutationSucceeded = vi.fn();
+    const unsubscribeMutation = queryClient
+      .getMutationCache()
+      .subscribe((event) => {
+        if (
+          event.type === "updated" &&
+          event.mutation.state.status === "success"
+        ) {
+          mutationSucceeded();
+        }
+      });
+    const successEvent = nextCallOf(mutationSucceeded);
+    await act(async () => {
+      answer.resolve({ updated: true });
+      await Promise.all([settleRead, successEvent]);
+    });
+    unsubscribeMutation();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "All" }));
+    const rowState = () =>
+      screen
+        .getByRole("checkbox", { name: "Write the store" })
+        .getAttribute("aria-checked");
+    expect(rowState()).toBe("true");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(TICKET_STATUS_HOLD_MS - 1);
+    });
+    expect(readCount).toBe(2);
+    expect(rowState()).toBe("true");
+
+    const holdEndRead = nextCallOf(readStarted);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+      await holdEndRead;
+    });
+    expect(readCount).toBe(3);
+    expect(rowState()).toBe("true");
+
+    const landed = nextTicketReadLanded(queryClient);
+    await act(async () => {
+      readAfterHold.resolve({ entries: TICKETS });
+      await landed;
+      // The query's notifications wait on a zero-delay timer.
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(rowState()).toBe("false");
     expect(fixture.client.request).toHaveBeenCalledTimes(1);
     rendered.unmount();
     queryClient.clear();
