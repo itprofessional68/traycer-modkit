@@ -41,16 +41,16 @@ export function ticketKey(epicId: string, artifactId: string): string {
 }
 
 /**
- * The tickets with each pending write's status laid over the read's, so a
- * read that lands while a write is in flight cannot show the old status.
+ * The tickets with the statuses written here laid over the read's, so a read
+ * taken before the host's ticket index caught up cannot show the old status.
  */
-export function withPendingStatuses(
+export function withWrittenStatuses(
   tickets: ReadonlyArray<EpicMentionTicketSuggestion>,
-  pending: ReadonlyMap<string, TicketStatus>,
+  written: ReadonlyMap<string, TicketStatus>,
 ): ReadonlyArray<EpicMentionTicketSuggestion> {
-  if (pending.size === 0) return tickets;
+  if (written.size === 0) return tickets;
   return tickets.map((ticket) => {
-    const status = pending.get(ticketKey(ticket.epicId, ticket.artifactId));
+    const status = written.get(ticketKey(ticket.epicId, ticket.artifactId));
     return status === undefined ? ticket : { ...ticket, status };
   });
 }

@@ -12,6 +12,8 @@ import { toastFromHostError } from "@/lib/host-error-toast";
 import { appLogger } from "@/lib/logger";
 import { Analytics, AnalyticsEvent } from "@/lib/analytics";
 import { hostQueryKeys } from "@/lib/query-keys";
+import { ticketKey } from "@/lib/todos/group-todos";
+import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
 import { useOpenEpicHandle } from "@/providers/use-open-epic-handle";
 import type { CommandRecord } from "@traycer-clients/shared/replica-runtime";
 import { HostRpcError } from "@traycer-clients/shared/host-transport/host-messenger";
@@ -282,6 +284,10 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   const mutateAsync = async (variables: Variables): Promise<Response> => {
     try {
       await updateArtifactStatusThroughOpenEpic(handle, variables);
+      // This write is newer than any To-dos write's hold on the ticket.
+      useTicketStatusHoldsStore
+        .getState()
+        .release(ticketKey(variables.epicId, variables.artifactId));
       refreshTicketReads(queryClient);
       return { updated: true };
     } catch (error: unknown) {

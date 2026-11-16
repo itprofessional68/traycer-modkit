@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { EpicMentionTicketSuggestion } from "@traycer/protocol/host/epic/unary-schemas";
 import {
   buildHistoryItemsFromTasks,
@@ -10,7 +10,8 @@ import {
   filterTodoGroupsByRepo,
   todoRepoOptions,
   todoReposByEpicId,
-} from "@/components/todos/todo-repos";
+  todoTaskTitlesByEpicId,
+} from "@/components/todos/todo-tasks";
 import {
   Select,
   SelectContent,
@@ -26,9 +27,11 @@ import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query
 import {
   groupTodos,
   ticketKey,
-  withPendingStatuses,
+  ticketStatusOf,
+  withWrittenStatuses,
   type TodoFilter,
 } from "@/lib/todos/group-todos";
+import { useTicketStatusHoldsStore } from "@/stores/todos/ticket-status-holds-store";
 
 const NO_TICKETS: ReadonlyArray<EpicMentionTicketSuggestion> = [];
 /** The repo filter's "no filter" item; Radix gives `""` its own meaning. */
@@ -36,7 +39,7 @@ const ALL_REPOS = "all-repos";
 
 /**
  * The To-dos tab: the tickets the app-wide host has indexed, grouped by
- * Task, to check off. Repo names come from the Task list.
+ * Task, to check off. Task names and repos come from the Task list.
  */
 export function TodosSurface(): ReactNode {
   const tickets = useEpicMentionTicketsQuery(useTabSurfaceActivity().visible);
@@ -47,22 +50,53 @@ export function TodosSurface(): ReactNode {
   const [pickedRepo, setPickedRepo] = useState<string | null>(null);
 
   const pending = usePendingTicketStatuses();
+  const holds = useTicketStatusHoldsStore((state) => state.holds);
+  const releaseAgreed = useTicketStatusHoldsStore(
+    (state) => state.releaseAgreed,
+  );
+  const readEntries = tickets.data?.entries ?? NO_TICKETS;
+  // A hold lasts until the host's own read says the same; the store is the
+  // external state this keeps in step with each read.
+  useEffect(() => {
+    releaseAgreed(
+      new Map(
+        readEntries.map((entry) => [
+          ticketKey(entry.epicId, entry.artifactId),
+          ticketStatusOf(entry.status),
+        ]),
+      ),
+    );
+  }, [readEntries, holds, releaseAgreed]);
+  // A write in flight wins over a hold on the same ticket: it is newer.
   const entries = useMemo(
-    () => withPendingStatuses(tickets.data?.entries ?? NO_TICKETS, pending),
-    [tickets.data, pending],
+    () =>
+      withWrittenStatuses(
+        readEntries,
+        new Map([
+          ...[...holds].map(([key, hold]) => [key, hold.status] as const),
+          ...pending,
+        ]),
+      ),
+    [readEntries, holds, pending],
   );
   // `nowMs` only feeds the items' time labels, which this surface never shows.
-  const reposByEpicId = useMemo(
+  const taskItems = useMemo(
     () =>
-      todoReposByEpicId(
-        buildHistoryItemsFromTasks(
-          tasks,
-          0,
-          currentUserId,
-          EMPTY_LOCAL_HOMED_TASK_IDS,
-        ),
+      buildHistoryItemsFromTasks(
+        tasks,
+        0,
+        currentUserId,
+        EMPTY_LOCAL_HOMED_TASK_IDS,
       ),
     [tasks, currentUserId],
+  );
+  const reposByEpicId = useMemo(
+    () => todoReposByEpicId(taskItems),
+    [taskItems],
+  );
+  const titlesByEpicId = useMemo(
+    () => todoTaskTitlesByEpicId(taskItems),
+    [taskItems],
   );
   const allGroups = useMemo(() => groupTodos(entries, "all"), [entries]);
   const repoOptions = useMemo(
@@ -149,14 +183,15 @@ export function TodosSurface(): ReactNode {
       ) : null}
       {groups.map((group) => {
         const repos = reposByEpicId.get(group.epicId) ?? [];
+        const title = titlesByEpicId.get(group.epicId) ?? group.epicTitle;
         return (
           <section
             key={group.epicId}
-            aria-label={group.epicTitle}
+            aria-label={title}
             className="flex flex-col gap-1"
           >
             <h2 className="flex min-w-0 items-baseline gap-2 text-ui-xs font-medium text-muted-foreground">
-              <span className="truncate">{group.epicTitle}</span>
+              <span className="truncate">{title}</span>
               {repos.length > 0 ? (
                 <span className="truncate font-normal">{repos.join(", ")}</span>
               ) : null}

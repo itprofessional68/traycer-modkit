@@ -1,5 +1,19 @@
+import { historyItemDisplayTitle } from "@/components/epics/history-item-title";
 import type { HistoryItem } from "@/components/home/data/home-page.data";
 import type { TodoGroup } from "@/lib/todos/group-todos";
+
+/**
+ * Each Task's name as History shows it, by Task id. Preferred over the name
+ * the ticket read carries, which a host that has not named the Task fills
+ * with "Epic <id>".
+ */
+export function todoTaskTitlesByEpicId(
+  items: ReadonlyArray<HistoryItem>,
+): ReadonlyMap<string, string> {
+  return new Map(
+    items.map((item) => [item.epicId, historyItemDisplayTitle(item)]),
+  );
+}
 
 /**
  * Each Task's linked repos (`owner/repo`), by Task id. The Task list is one
