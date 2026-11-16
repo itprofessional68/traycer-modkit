@@ -58,6 +58,7 @@ const fixture = vi.hoisted(() => {
     },
     tasks: new Array<unknown>(),
     currentUserId: null as string | null,
+    firstPagePending: false,
     navigations: new Array<NavigateOptions>(),
   };
 });
@@ -70,6 +71,7 @@ vi.mock("@/hooks/epics/use-cloud-epic-tasks-query", () => ({
   useCloudEpicTasksQuery: () => ({
     tasks: fixture.tasks,
     currentUserId: fixture.currentUserId,
+    firstPagePending: fixture.firstPagePending,
   }),
 }));
 vi.mock("@tanstack/react-router", async (importOriginal) => ({
@@ -213,6 +215,7 @@ describe("TodosSurface", () => {
     __resetTabNavigationControllerForTesting();
     fixture.tasks.splice(0, fixture.tasks.length, taskA());
     fixture.currentUserId = null;
+    fixture.firstPagePending = false;
     fixture.setActiveHostId("host-1");
     fixture.client.requestWithSignal.mockResolvedValue({ entries: TICKETS });
     focusManager.setFocused(undefined);
@@ -781,55 +784,190 @@ describe("TodosSurface", () => {
     expect(
       screen.queryByRole("region", { name: "Host read title" }),
     ).toBeNull();
+    // Signed out: Task B is not looked up by id.
+    expect(
+      fixture.client.requestWithSignal.mock.calls.some(
+        ([method]) => method === "epic.getTaskContexts",
+      ),
+    ).toBe(false);
   });
 
-  it("names a Task past the Task list's first page by looking it up by id", async () => {
-    useAuthStore
-      .getState()
-      .setSignedIn(
-        { userId: "user-a", userName: "A", email: "a@example.com" },
-        { userId: "user-a", username: "A" },
-        [],
-      );
-    fixture.currentUserId = "user-a";
-    const base = taskLight("task-b", null);
-    const taskB: ListTaskLight = {
-      ...base,
-      epic: {
-        light: base.epic?.light
-          ? { ...base.epic.light, title: "Task B by id" }
-          : null,
-        permission: null,
-        repos: [],
-        workspaces: [],
-        roomInfo: null,
-      },
-    };
-    const lookups = new Array<unknown>();
-    fixture.client.requestWithSignal.mockImplementation(
-      (method: string, params: unknown) => {
-        if (method !== "epic.getTaskContexts") {
-          return Promise.resolve({ entries: TICKETS });
-        }
-        lookups.push(params);
-        return Promise.resolve({
-          tasks: { "task-b": { status: "found", task: taskB } },
-        });
-      },
-    );
+  describe("a Task past the Task list's first page", () => {
+    beforeEach(() => {
+      useAuthStore
+        .getState()
+        .setSignedIn(
+          { userId: "user-a", userName: "A", email: "a@example.com" },
+          { userId: "user-a", username: "A" },
+          [],
+        );
+      fixture.currentUserId = "user-a";
+    });
 
-    try {
+    afterEach(() => {
+      useAuthStore.getState().setSignedOut();
+    });
+
+    /** A Task as the lookup by id answers it, linked to `owner/repo`. */
+    function lookedUpTask(epicId: string, title: string): ListTaskLight {
+      const base = taskLight(epicId, null);
+      return {
+        ...base,
+        epic: {
+          light: base.epic?.light ? { ...base.epic.light, title } : null,
+          permission: null,
+          repos: [
+            {
+              task: null,
+              repoIdentifier: { owner: "acme", repo: `${epicId}-repo` },
+              createdAt: 0,
+              createdBy: "user-a",
+            },
+          ],
+          workspaces: [],
+          roomInfo: null,
+        },
+      };
+    }
+
+    function found(...tasks: ListTaskLight[]) {
+      return {
+        tasks: Object.fromEntries(
+          tasks.map((task) => [
+            task.epic?.light?.id ?? "",
+            { status: "found", task },
+          ]),
+        ),
+      };
+    }
+
+    it("is named and linked to its repos by looking it up by id", async () => {
+      const lookups = new Array<unknown>();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: TICKETS });
+          }
+          lookups.push(params);
+          return Promise.resolve(found(lookedUpTask("task-b", "Task B by id")));
+        },
+      );
+
       renderSurface();
+
+      const group = await screen.findByRole("region", {
+        name: "Task B by id",
+      });
+      expect(within(group).getByText("acme/task-b-repo")).not.toBeNull();
+      expect(screen.queryByRole("region", { name: "Task B" })).toBeNull();
+      expect(section("Task A")).not.toBeNull();
+      expect(lookups).toEqual([{ taskIds: ["task-b"] }]);
+
+      fireEvent.keyDown(screen.getByRole("combobox", { name: "Repo" }), {
+        key: "ArrowDown",
+      });
+      const option = screen.getByRole("option", { name: "acme/task-b-repo" });
+      fireEvent.focus(option);
+      fireEvent.keyDown(option, { key: "Enter" });
+      expect(screen.queryByRole("region", { name: "Task A" })).toBeNull();
+      expect(section("Task B by id")).not.toBeNull();
+    });
+
+    it("is not looked up before the Task list's first page answers", async () => {
+      fixture.firstPagePending = true;
+      fixture.tasks.splice(0, fixture.tasks.length);
+      const lookups = new Array<unknown>();
+      const ticketRead = vi.fn();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            ticketRead();
+            return Promise.resolve({ entries: TICKETS });
+          }
+          lookups.push(params);
+          return Promise.resolve(found(lookedUpTask("task-b", "Task B by id")));
+        },
+      );
+      const firstRead = nextCallOf(ticketRead);
+      const rendered = renderSurface();
+      await act(async () => {
+        await firstRead;
+      });
+      await screen.findByRole("region", { name: "Task B" });
+      expect(lookups).toEqual([]);
+
+      fixture.firstPagePending = false;
+      fixture.tasks = [taskA()];
+      rendered.rerender(
+        <TabSurfaceActivityContext.Provider
+          value={{ visible: true, focused: true }}
+        >
+          <TodosSurface />
+        </TabSurfaceActivityContext.Provider>,
+      );
 
       expect(
         await screen.findByRole("region", { name: "Task B by id" }),
       ).not.toBeNull();
-      expect(screen.queryByRole("region", { name: "Task B" })).toBeNull();
-      expect(section("Task A")).not.toBeNull();
       expect(lookups).toEqual([{ taskIds: ["task-b"] }]);
-    } finally {
-      useAuthStore.getState().setSignedOut();
-    }
+    });
+
+    it("keeps its name while a new Task is looked up", async () => {
+      const withTaskC = [
+        ...TICKETS,
+        ticket("task-c", "t-c", "Plan the launch", 0),
+      ];
+      let ticketEntries = TICKETS;
+      const secondLookup = deferred<unknown>();
+      const lookupStarted = vi.fn();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: ticketEntries });
+          }
+          lookupStarted(params);
+          return lookupStarted.mock.calls.length === 1
+            ? Promise.resolve(found(lookedUpTask("task-b", "Task B by id")))
+            : secondLookup.promise;
+        },
+      );
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      renderSurfaceWithQueryClient(
+        { visible: true, focused: true },
+        queryClient,
+      );
+      await screen.findByRole("region", { name: "Task B by id" });
+
+      ticketEntries = withTaskC;
+      const nextLookup = nextCallOf(lookupStarted);
+      await act(async () => {
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryHash === hashKey(HOST_A_TICKETS_KEY),
+        });
+        await nextLookup;
+      });
+      expect(lookupStarted).toHaveBeenLastCalledWith({
+        taskIds: ["task-b", "task-c"],
+      });
+      expect(section("Task B by id")).not.toBeNull();
+
+      await act(async () => {
+        secondLookup.resolve(
+          found(
+            lookedUpTask("task-b", "Task B by id"),
+            lookedUpTask("task-c", "Task C by id"),
+          ),
+        );
+        await secondLookup.promise;
+      });
+      expect(
+        await screen.findByRole("region", { name: "Task C by id" }),
+      ).not.toBeNull();
+      expect(section("Task B by id")).not.toBeNull();
+      queryClient.clear();
+    });
   });
 
   it("keeps a Done ticket out of Open when the host switches during its write", async () => {

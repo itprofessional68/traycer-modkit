@@ -12,6 +12,7 @@ import {
   todoReposByEpicId,
   todoTaskTitlesByEpicId,
 } from "@/components/todos/todo-tasks";
+import { useUnlistedTodoTasks } from "@/components/todos/use-unlisted-todo-tasks";
 import {
   Select,
   SelectContent,
@@ -22,7 +23,6 @@ import {
 import { AgentSpinningDots } from "@/components/ui/agent-spinning-dots";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEpicMentionTicketsQuery } from "@/hooks/epic/use-epic-mention-tickets-query";
-import { useEpicGetTaskContexts } from "@/hooks/epic/use-epic-get-task-contexts-query";
 import { usePendingTicketStatuses } from "@/hooks/epic/use-epic-update-artifact-status-direct-mutation";
 import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query";
 import {
@@ -41,6 +41,7 @@ import {
 } from "@/stores/todos/ticket-status-holds-store";
 
 const NO_TICKETS: ReadonlyArray<EpicMentionTicketSuggestion> = [];
+const NO_EPIC_IDS: ReadonlyArray<string> = [];
 /** The repo filter's "no filter" item; Radix gives `""` its own meaning. */
 const ALL_REPOS = "all-repos";
 
@@ -52,9 +53,12 @@ const ALL_REPOS = "all-repos";
 export function TodosSurface(): ReactNode {
   const { visible } = useTabSurfaceActivity();
   const tickets = useEpicMentionTicketsQuery(visible);
-  const { tasks, currentUserId } = useCloudEpicTasksQuery(undefined, {
-    enabled: true,
-  });
+  const { tasks, currentUserId, firstPagePending } = useCloudEpicTasksQuery(
+    undefined,
+    {
+      enabled: true,
+    },
+  );
   const [filter, setFilter] = useState<TodoFilter>("open");
   const [pickedRepo, setPickedRepo] = useState<string | null>(null);
 
@@ -118,39 +122,46 @@ export function TodosSurface(): ReactNode {
     [tasks, currentUserId],
   );
   // The Task list is its first page, and tickets come from any Task the host
-  // has indexed: the rest are looked up by id, as History does.
+  // has indexed: the rest are looked up by id, as History does, once the first
+  // page has answered (before it, every ticket's Task would be asked for).
   const unlistedEpicIds = useMemo(() => {
+    if (firstPagePending) return NO_EPIC_IDS;
     const listed = new Set(listedItems.map((item) => item.epicId));
     return [...new Set(readEntries.map((entry) => entry.epicId))]
       .filter((epicId) => !listed.has(epicId))
       .toSorted((left, right) => left.localeCompare(right));
-  }, [listedItems, readEntries]);
+  }, [firstPagePending, listedItems, readEntries]);
   const cloudAuthorized = useAuthStore((state) =>
     authorizesCloudCapability(state.status),
   );
-  const unlisted = useEpicGetTaskContexts(unlistedEpicIds, currentUserId, {
-    enabled: cloudAuthorized,
-  });
-  const taskItems = useMemo(
-    () =>
-      unlisted.tasksById.size === 0
-        ? listedItems
-        : [
-            ...listedItems,
-            ...buildHistoryItemsFromTasks(
-              [...unlisted.tasksById.values()],
-              0,
-              currentUserId,
-              unlisted.localHomedTaskIds,
-            ),
-          ],
-    [
-      listedItems,
-      unlisted.tasksById,
-      unlisted.localHomedTaskIds,
-      currentUserId,
-    ],
+  const unlisted = useUnlistedTodoTasks(
+    unlistedEpicIds,
+    currentUserId,
+    cloudAuthorized && visible,
   );
+  const taskItems = useMemo(() => {
+    const unlistedTasks = unlistedEpicIds.flatMap((epicId) => {
+      const task = unlisted.tasksById.get(epicId);
+      return task === undefined ? [] : [task];
+    });
+    return unlistedTasks.length === 0
+      ? listedItems
+      : [
+          ...listedItems,
+          ...buildHistoryItemsFromTasks(
+            unlistedTasks,
+            0,
+            currentUserId,
+            unlisted.localHomedTaskIds,
+          ),
+        ];
+  }, [
+    listedItems,
+    unlistedEpicIds,
+    unlisted.tasksById,
+    unlisted.localHomedTaskIds,
+    currentUserId,
+  ]);
   const reposByEpicId = useMemo(
     () => todoReposByEpicId(taskItems),
     [taskItems],
