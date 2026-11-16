@@ -123,7 +123,8 @@ export function TodosSurface(): ReactNode {
   );
   // The Task list is its first page, and tickets come from any Task the host
   // has indexed: the rest are looked up by id, as History does, once the first
-  // page has answered (before it, every ticket's Task would be asked for).
+  // page or its cached copy is shown (before it, every ticket's Task would be
+  // asked for).
   const unlistedEpicIds = useMemo(() => {
     if (firstPagePending) return NO_EPIC_IDS;
     const listed = new Set(listedItems.map((item) => item.epicId));

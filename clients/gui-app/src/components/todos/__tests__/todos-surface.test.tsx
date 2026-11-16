@@ -968,6 +968,148 @@ describe("TodosSurface", () => {
       expect(section("Task B by id")).not.toBeNull();
       queryClient.clear();
     });
+
+    it("falls back to the ticket's name once a newer lookup no longer finds it", async () => {
+      let ticketEntries = TICKETS;
+      const lookupStarted = vi.fn();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: ticketEntries });
+          }
+          lookupStarted(params);
+          if (lookupStarted.mock.calls.length === 1) {
+            return Promise.resolve(
+              found(lookedUpTask("task-b", "Task B by id")),
+            );
+          }
+          // Task B was deleted, or is no longer the person's to see.
+          return Promise.resolve({
+            tasks: {
+              ...found(lookedUpTask("task-c", "Task C by id")).tasks,
+              "task-b": { status: "confirmed-absent" },
+            },
+          });
+        },
+      );
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      renderSurfaceWithQueryClient(
+        { visible: true, focused: true },
+        queryClient,
+      );
+      await screen.findByRole("region", { name: "Task B by id" });
+
+      ticketEntries = [
+        ...TICKETS,
+        ticket("task-c", "t-c", "Plan the launch", 0),
+      ];
+      await act(async () => {
+        await queryClient.invalidateQueries({
+          predicate: (query) => query.queryHash === hashKey(HOST_A_TICKETS_KEY),
+        });
+      });
+
+      expect(
+        await screen.findByRole("region", { name: "Task C by id" }),
+      ).not.toBeNull();
+      expect(section("Task B")).not.toBeNull();
+      expect(screen.queryByRole("region", { name: "Task B by id" })).toBeNull();
+      expect(screen.queryByText("acme/task-b-repo")).toBeNull();
+      queryClient.clear();
+    });
+
+    it("starts over for a different signed-in person", async () => {
+      const lookupStarted = vi.fn();
+      const otherPersonsLookup = deferred<unknown>();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: TICKETS });
+          }
+          lookupStarted(params);
+          return lookupStarted.mock.calls.length === 1
+            ? Promise.resolve(found(lookedUpTask("task-b", "Task B by id")))
+            : otherPersonsLookup.promise;
+        },
+      );
+      const rendered = renderSurface();
+      await screen.findByRole("region", { name: "Task B by id" });
+
+      const nextLookup = nextCallOf(lookupStarted);
+      act(() => {
+        useAuthStore
+          .getState()
+          .setSignedIn(
+            { userId: "user-b", userName: "B", email: "b@example.com" },
+            { userId: "user-b", username: "B" },
+            [],
+          );
+      });
+      fixture.currentUserId = "user-b";
+      rendered.rerender(
+        <TabSurfaceActivityContext.Provider
+          value={{ visible: true, focused: true }}
+        >
+          <TodosSurface />
+        </TabSurfaceActivityContext.Provider>,
+      );
+      await act(async () => {
+        await nextLookup;
+      });
+
+      expect(section("Task B")).not.toBeNull();
+      expect(screen.queryByRole("region", { name: "Task B by id" })).toBeNull();
+      otherPersonsLookup.resolve({ tasks: {} });
+    });
+
+    it("is not looked up while the To-dos tab is hidden", async () => {
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      });
+      queryClient.setQueryData<TicketsRead>(HOST_A_TICKETS_KEY, {
+        entries: TICKETS,
+        requestedAt: 0,
+      });
+      const lookupStarted = vi.fn();
+      fixture.client.requestWithSignal.mockImplementation(
+        (method: string, params: unknown) => {
+          if (method !== "epic.getTaskContexts") {
+            return Promise.resolve({ entries: TICKETS });
+          }
+          lookupStarted(params);
+          return Promise.resolve(found(lookedUpTask("task-b", "Task B by id")));
+        },
+      );
+      const rendered = renderSurfaceWithQueryClient(
+        { visible: false, focused: false },
+        queryClient,
+      );
+      expect(section("Task B")).not.toBeNull();
+      vi.useFakeTimers();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+      vi.useRealTimers();
+      expect(lookupStarted).not.toHaveBeenCalled();
+
+      const shownLookup = nextCallOf(lookupStarted);
+      rendered.rerender(
+        <TabSurfaceActivityContext.Provider
+          value={{ visible: true, focused: true }}
+        >
+          <TodosSurface />
+        </TabSurfaceActivityContext.Provider>,
+      );
+      await act(async () => {
+        await shownLookup;
+      });
+      expect(
+        await screen.findByRole("region", { name: "Task B by id" }),
+      ).not.toBeNull();
+      queryClient.clear();
+    });
   });
 
   it("keeps a Done ticket out of Open when the host switches during its write", async () => {

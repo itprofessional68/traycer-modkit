@@ -3,9 +3,9 @@ import type { ListTaskLight } from "@traycer/protocol/host/epic/unary-schemas";
 import { useEpicGetTaskContexts } from "@/hooks/epic/use-epic-get-task-contexts-query";
 
 export interface UnlistedTodoTasks {
-  /** Every Task found so far for this person, by id. */
+  /** The Tasks found for this person, by id. */
   readonly tasksById: ReadonlyMap<string, ListTaskLight>;
-  /** The found Tasks the host marked local-homed. */
+  /** The found Tasks the host marked local-homed in its latest answer. */
   readonly localHomedTaskIds: ReadonlySet<string>;
 }
 
@@ -20,7 +20,9 @@ interface Remembered extends UnlistedTodoTasks {
  * up by id as History does. The lookup's key is the id set, so a new Task's
  * ticket or a reshuffled first page starts a new lookup; the Tasks already
  * found are kept meanwhile rather than falling back to the ticket read's
- * name. Kept per person: a different `userId` starts empty.
+ * name. A complete answer that no longer finds a Task (deleted, or no longer
+ * the person's to see) drops it. Kept per person: a different `userId` starts
+ * empty.
  *
  * `enabled` is the cloud verdict and the caller's own gates; the lookup also
  * needs a known user and at least one id.
@@ -37,6 +39,8 @@ export function useUnlistedTodoTasks(
     tasksById: new Map(),
     localHomedTaskIds: new Set(),
   }));
+  const answered =
+    epicIds.length > 0 && !lookup.isPending && lookup.error === null;
   // Merged during render, as React's "storing information from previous
   // renders" pattern does, so a fresh answer shows in the same render.
   if (remembered.userId !== userId) {
@@ -48,17 +52,42 @@ export function useUnlistedTodoTasks(
     });
   } else if (
     remembered.mergedFrom !== lookup.tasksById &&
-    lookup.tasksById.size > 0
+    (lookup.tasksById.size > 0 || answered)
   ) {
-    setRemembered({
-      userId,
-      mergedFrom: lookup.tasksById,
-      tasksById: new Map([...remembered.tasksById, ...lookup.tasksById]),
-      localHomedTaskIds: new Set([
-        ...remembered.localHomedTaskIds,
-        ...lookup.localHomedTaskIds,
-      ]),
-    });
+    setRemembered(
+      mergeAnswer(remembered, lookup, answered ? epicIds : NO_EPIC_IDS),
+    );
   }
   return remembered.userId === userId ? remembered : lookup;
+}
+
+const NO_EPIC_IDS: readonly string[] = [];
+
+/**
+ * `remembered` with `answer` laid over it: each Task it found, with its
+ * local-homed mark, and none of `askedFor` it did not find.
+ */
+function mergeAnswer(
+  remembered: Remembered,
+  answer: UnlistedTodoTasks,
+  askedFor: readonly string[],
+): Remembered {
+  const tasksById = new Map(remembered.tasksById);
+  const localHomedTaskIds = new Set(remembered.localHomedTaskIds);
+  for (const epicId of askedFor) {
+    if (answer.tasksById.has(epicId)) continue;
+    tasksById.delete(epicId);
+    localHomedTaskIds.delete(epicId);
+  }
+  for (const [epicId, task] of answer.tasksById) {
+    tasksById.set(epicId, task);
+    if (answer.localHomedTaskIds.has(epicId)) localHomedTaskIds.add(epicId);
+    else localHomedTaskIds.delete(epicId);
+  }
+  return {
+    userId: remembered.userId,
+    mergedFrom: answer.tasksById,
+    tasksById,
+    localHomedTaskIds,
+  };
 }
