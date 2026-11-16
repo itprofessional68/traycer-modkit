@@ -351,7 +351,7 @@ describe("TodosSurface", () => {
     expect(fixture.client.requestWithSignal).toHaveBeenCalledTimes(2);
   });
 
-  it("lets the newest written status hold through lagging reads until its timer expires", async () => {
+  it("lets the newest written status hold through lagging reads until a read sent after its window lands", async () => {
     const readStarted = vi.fn();
     let readCount = 0;
     const doneEntries = TICKETS.map((entry) =>

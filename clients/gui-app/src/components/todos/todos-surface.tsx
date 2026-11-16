@@ -78,9 +78,10 @@ export function TodosSurface(): ReactNode {
     if (!visible || requestedAt === undefined) return;
     const now = Date.now();
     const windowEnds = new Set([...holds.values()].map((hold) => hold.liftsAt));
-    // A window that has ended still covers this read: one already in flight
-    // when it ended is joined rather than restarted, and lands here. A failed
-    // read waits for the next show or focus instead of retrying here.
+    // A window that has ended still covers this read: with nothing cached
+    // (a host just switched to), the read in flight when it ended is joined
+    // rather than restarted, and lands here. A failed read waits for the next
+    // show or focus instead of retrying here.
     const covered = [...windowEnds].some(
       (end) => end <= now && requestedAt < end,
     );
