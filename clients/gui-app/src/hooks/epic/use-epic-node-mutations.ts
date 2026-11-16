@@ -284,10 +284,16 @@ export function useEpicUpdateArtifactStatus(artifactId: string | null) {
   const mutateAsync = async (variables: Variables): Promise<Response> => {
     try {
       await updateArtifactStatusThroughOpenEpic(handle, variables);
-      // This write is newer than any To-dos write's hold on the ticket.
-      useTicketStatusHoldsStore
-        .getState()
-        .release(ticketKey(variables.epicId, variables.artifactId));
+      // The To-dos pane shows this over ticket reads the host's index has
+      // not caught up on yet, in place of any earlier write's status.
+      if (variables.artifactType === "ticket") {
+        useTicketStatusHoldsStore
+          .getState()
+          .hold(
+            ticketKey(variables.epicId, variables.artifactId),
+            variables.status,
+          );
+      }
       refreshTicketReads(queryClient);
       return { updated: true };
     } catch (error: unknown) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { EpicMentionTicketSuggestion } from "@traycer/protocol/host/epic/unary-schemas";
 import {
   buildHistoryItemsFromTasks,
@@ -27,7 +27,6 @@ import { useCloudEpicTasksQuery } from "@/hooks/epics/use-cloud-epic-tasks-query
 import {
   groupTodos,
   ticketKey,
-  ticketStatusOf,
   withWrittenStatuses,
   type TodoFilter,
 } from "@/lib/todos/group-todos";
@@ -51,22 +50,7 @@ export function TodosSurface(): ReactNode {
 
   const pending = usePendingTicketStatuses();
   const holds = useTicketStatusHoldsStore((state) => state.holds);
-  const releaseAgreed = useTicketStatusHoldsStore(
-    (state) => state.releaseAgreed,
-  );
   const readEntries = tickets.data?.entries ?? NO_TICKETS;
-  // A hold lasts until the host's own read says the same; the store is the
-  // external state this keeps in step with each read.
-  useEffect(() => {
-    releaseAgreed(
-      new Map(
-        readEntries.map((entry) => [
-          ticketKey(entry.epicId, entry.artifactId),
-          ticketStatusOf(entry.status),
-        ]),
-      ),
-    );
-  }, [readEntries, holds, releaseAgreed]);
   // A write in flight wins over a hold on the same ticket: it is newer.
   const entries = useMemo(
     () =>
