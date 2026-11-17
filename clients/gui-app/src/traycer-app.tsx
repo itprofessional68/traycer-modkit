@@ -75,6 +75,7 @@ import { WindowsBridgeAuthSessionBridge } from "@/providers/windows-bridge-auth-
 import { WindowsBridgeProvider } from "@/providers/windows-bridge-provider";
 import { AppTelemetryBridge } from "@/providers/app-telemetry-bridge";
 import { withStartupNavigationIntent } from "@/lib/host/startup-navigation-intent";
+import { AppRouterProvider } from "@/app-router-provider";
 import { createAppRouter, type AppRouter } from "@/router";
 // Side-effect import: installs the WCO → `.wco` class bridge at module
 // load (mirrors `theme-applier.ts`). The class drives the `wco:`
@@ -87,7 +88,6 @@ import { appLogger, describeLogError } from "@/lib/logger";
 // by a busy main thread are visible directly. Gated to dev / opt-in.
 startMainThreadBlockProbe();
 import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider } from "@tanstack/react-router";
 import type { RemoteHostFetcher } from "@traycer-clients/shared/host-client/remote-fetcher";
 import type { IRunnerHost } from "@traycer-clients/shared/platform/runner-host";
 import { LazyMotion, domMax } from "motion/react";
@@ -356,7 +356,7 @@ interface TraycerAppRuntimeSurfaceProps {
   readonly router: AppRouter;
 }
 
-function TraycerAppRuntimeSurface(props: TraycerAppRuntimeSurfaceProps) {
+export function TraycerAppRuntimeSurface(props: TraycerAppRuntimeSurfaceProps) {
   // The host-readiness gate now lives INSIDE the router (around the routed
   // page, in `RootComponent`'s `HostReadyGate`), so `RouterProvider` mounts
   // unconditionally here. That keeps the root-route bridges - the menu command
@@ -375,7 +375,7 @@ function TraycerAppRuntimeSurface(props: TraycerAppRuntimeSurfaceProps) {
       <HarnessCatalogPrefetcher />
       <RateLimitPollProvider />
       <HistoryPruneProvider router={props.router} />
-      <RouterProvider router={props.router} />
+      <AppRouterProvider router={props.router} />
       {/*
         Ticket 12's chat cost line: mounted ONCE app-wide (not per-tab) since
         the tab strip's "Usage" context-menu item can target any open chat's
